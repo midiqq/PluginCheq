@@ -1,0 +1,13 @@
+* text=auto eol=lf
+*.cpp text eol=lf
+*.h text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.json text eol=lf
+CMakeLists.txt text eol=lf
+*.gitignore text eol=lf
+*.vst3 binary
+*.exe binary
+*.dll binary
+*.lib binary
+*.a binary
