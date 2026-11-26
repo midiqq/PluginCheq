@@ -1,0 +1,53 @@
+# PluginCheq — Paquete de Instalación y Primeros Pasos
+
+Este paquete contiene los binarios listos para usar de **PluginCheq v0.2**.
+
+---
+
+## CONTENIDO DE ESTA CARPETA
+
+- **`PluginCheq.vst3`**: Plugin VST3 de 64 bits para cualquier DAW en Windows (Ableton Live, FL Studio, Reaper, Cubase, Studio One, etc.).
+- **`PluginCheq.exe`**: Versión **Standalone** (aplicación de escritorio independiente). No requiere DAW.
+- **`INSTALAR_VST3.bat`**: Script de 1 click para copiar automáticamente el plugin al directorio oficial de VST3 de Windows.
+- **`MANUAL_DE_USUARIO.md`**: Manual detallado y completo con imágenes y ejemplos paso a paso.
+
+---
+
+## INSTALACIÓN DEL PLUGIN VST3
+
+### Opción 1 (Automática):
+Haz doble click (o click derecho -> *Ejecutar como administrador*) en:
+```text
+INSTALAR_VST3.bat
+```
+
+### Opción 2 (Manual):
+Copia la carpeta completa `PluginCheq.vst3` a tu ruta estándar de plugins VST3:
+```text
+C:\Program Files\Common Files\VST3\
+```
+
+Luego abre tu DAW y haz un rescaneo de plugins. Aparecerá en la categoría **Analyzer / Tools** como **PluginCheq**.
+
+---
+
+## PRIMEROS PASOS
+
+### 1. En Ableton Live (Solución de escalado nítido):
+Si usas pantalla con escalado en Windows y ves el plugin borroso:
+1. En Ableton Live, haz **click derecho en la barra superior del marco del dispositivo PluginCheq**.
+2. Desmarca **"Auto-scale plug-in window"**.
+3. Cierra y vuelve a abrir la ventana del plugin: **se verá 100% nítido a resolución nativa**.
+
+### 2. Cómo medir una cadena en Ableton Live (Sin configurar Sidechains complicados):
+1. Inserta **PluginCheq** antes de tus procesadores o ecualizadores:
+   - Configúralo en: `Routing Mode: Tap Sender (Pre-FX)`
+2. Inserta un segundo **PluginCheq** al final de la cadena (o en el Master):
+   - Configúralo en: `Routing Mode: Plugin Tap Bus (Ableton)`
+3. Verás en verde **`TAP BUS: LOCKED`**.
+4. Haz click en **`⚡ Auto-Align Delay`** para compensar la latencia de la cadena y observar la curva de transferencia perfecta.
+
+### 3. Usar la versión Standalone (Sin DAW):
+Ejecuta directamente **`PluginCheq.exe`**.
+- Elige tu interfaz de audio o salida de altavoces en `Options -> Audio Settings`.
+- En `Routing Mode`, selecciona **`Internal Generator`** y activa **Pink Noise** o **Sine Sweep** para calibrar sistemas, altavoces, hardware analógico o cables.

@@ -15,9 +15,7 @@ out/
 Thumbs.db
 
 # Compiled binaries
-*.exe
 *.dll
-*.vst3
 *.lib
 *.a
 *.pdb

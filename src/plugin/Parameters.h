@@ -1,17 +1,22 @@
 #pragma once
 
+#include "dsp/AnalysisTypes.h"
 #include <juce_audio_processors/juce_audio_processors.h>
 
 namespace plugin {
 
 namespace ParamID {
-inline constexpr const char* swapRefMeas    = "swapRefMeas";
-inline constexpr const char* channelMode    = "channelMode";
-inline constexpr const char* fftSizeIndex   = "fftSizeIndex";
-inline constexpr const char* windowType     = "windowType";
-inline constexpr const char* averagingMode  = "averagingMode";
-inline constexpr const char* averagingAlpha = "averagingAlpha";
-inline constexpr const char* linearAvgCount = "linearAvgCount";
+inline constexpr const char* routingMode      = "routingMode";
+inline constexpr const char* tapChannel       = "tapChannel";
+inline constexpr const char* generatorType    = "generatorType";
+inline constexpr const char* generatorGainDb  = "generatorGainDb";
+inline constexpr const char* swapRefMeas      = "swapRefMeas";
+inline constexpr const char* channelMode      = "channelMode";
+inline constexpr const char* fftSizeIndex     = "fftSizeIndex";
+inline constexpr const char* windowType       = "windowType";
+inline constexpr const char* averagingMode    = "averagingMode";
+inline constexpr const char* averagingAlpha   = "averagingAlpha";
+inline constexpr const char* linearAvgCount   = "linearAvgCount";
 inline constexpr const char* unwrapPhase      = "unwrapPhase";
 inline constexpr const char* showH2           = "showH2";
 inline constexpr const char* magRangeDb       = "magRangeDb";
@@ -43,6 +48,33 @@ inline float magRangeFromIndex(int idx) noexcept {
 inline juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout() {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 
+    // Routing Mode
+    params.push_back(std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID{ParamID::routingMode, 1},
+        "Routing Mode",
+        juce::StringArray{"DAW Sidechain", "Plugin Tap Bus (Ableton)", "Tap Sender (Pre-FX)", "Internal Generator"},
+        1)); // Default to Plugin Tap Bus for seamless Ableton / universal experience
+
+    params.push_back(std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID{ParamID::tapChannel, 1},
+        "Tap Bus Channel",
+        juce::StringArray{"Bus 1", "Bus 2", "Bus 3", "Bus 4"},
+        0));
+
+    // Internal Generator
+    params.push_back(std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID{ParamID::generatorType, 1},
+        "Generator",
+        juce::StringArray{"Off", "Pink Noise", "White Noise", "Sine Sweep", "Multitone"},
+        0));
+
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID{ParamID::generatorGainDb, 1},
+        "Gen Gain (dB)",
+        juce::NormalisableRange<float>(-48.0f, 0.0f, 0.5f),
+        -18.0f));
+
+    // Core Controls
     params.push_back(std::make_unique<juce::AudioParameterBool>(
         juce::ParameterID{ParamID::swapRefMeas, 1},
         "Swap Ref / Meas",

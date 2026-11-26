@@ -60,6 +60,10 @@ DSPAnalysisProcessor::DSPAnalysisProcessor()
     apvts_.addParameterListener(ParamID::smoothingMode, this);
     apvts_.addParameterListener(ParamID::delayCompEnabled, this);
     apvts_.addParameterListener(ParamID::delayCompMs, this);
+    apvts_.addParameterListener(ParamID::routingMode, this);
+    apvts_.addParameterListener(ParamID::tapChannel, this);
+    apvts_.addParameterListener(ParamID::generatorType, this);
+    apvts_.addParameterListener(ParamID::generatorGainDb, this);
 }
 
 DSPAnalysisProcessor::~DSPAnalysisProcessor() {
@@ -71,6 +75,15 @@ DSPAnalysisProcessor::~DSPAnalysisProcessor() {
     apvts_.removeParameterListener(ParamID::smoothingMode, this);
     apvts_.removeParameterListener(ParamID::delayCompEnabled, this);
     apvts_.removeParameterListener(ParamID::delayCompMs, this);
+    apvts_.removeParameterListener(ParamID::routingMode, this);
+    apvts_.removeParameterListener(ParamID::tapChannel, this);
+    apvts_.removeParameterListener(ParamID::generatorType, this);
+    apvts_.removeParameterListener(ParamID::generatorGainDb, this);
+
+    if (registeredTapChannel_ >= 0) {
+        dsp::InterPluginBus::getInstance().unregisterSender(registeredTapChannel_);
+        registeredTapChannel_ = -1;
+    }
 }
 
 bool DSPAnalysisProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const {
@@ -103,12 +116,18 @@ void DSPAnalysisProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
     const std::size_t maxBlock = static_cast<std::size_t>(std::max(4096, samplesPerBlock * 2));
     scratchMain_.assign(maxBlock, 0.0);
     scratchSidechain_.assign(maxBlock, 0.0);
+    tapFloatScratch_.assign(maxBlock, 0.0f);
 
+    generator_.prepare(sampleRate);
     worker_.prepare(sampleRate, maxBlock);
     syncWorkerConfig();
 }
 
 void DSPAnalysisProcessor::releaseResources() {
+    if (registeredTapChannel_ >= 0) {
+        dsp::InterPluginBus::getInstance().unregisterSender(registeredTapChannel_);
+        registeredTapChannel_ = -1;
+    }
 }
 
 void DSPAnalysisProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages) {
@@ -120,39 +139,133 @@ void DSPAnalysisProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
         return;
     }
 
-    // Main bus is ALWAYS bit-accurate passthrough: mainInput == mainOutput in-place.
     auto mainBus = getBusBuffer(buffer, true, 0);
-    const bool scBusEnabled = (getBusCount(true) > 1) && getBus(true, 1)->isEnabled();
-    const int scChannels = scBusEnabled ? getBusBuffer(buffer, true, 1).getNumChannels() : 0;
-    const bool hasSidechain = scBusEnabled && (scChannels > 0);
-    sidechainActive_.store(hasSidechain, std::memory_order_relaxed);
-
     const int safeSamples = std::min(numSamples, static_cast<int>(scratchMain_.size()));
     const auto chMode = static_cast<dsp::ChannelMode>(
         static_cast<int>(apvts_.getRawParameterValue(ParamID::channelMode)->load(std::memory_order_relaxed)));
     const bool swap =
         apvts_.getRawParameterValue(ParamID::swapRefMeas)->load(std::memory_order_relaxed) >= 0.5f;
 
-    float mainPeak = 0.0f;
-    float scPeak = 0.0f;
+    const auto routing = static_cast<dsp::RoutingMode>(
+        static_cast<int>(apvts_.getRawParameterValue(ParamID::routingMode)->load(std::memory_order_relaxed)));
+    currentRoutingMode_.store(static_cast<int>(routing), std::memory_order_relaxed);
 
-    extractChannel(mainBus, chMode, safeSamples, scratchMain_.data(), mainPeak);
+    const int tapCh = static_cast<int>(
+        apvts_.getRawParameterValue(ParamID::tapChannel)->load(std::memory_order_relaxed));
 
-    if (hasSidechain) {
-        auto scBus = getBusBuffer(buffer, true, 1);
-        extractChannel(scBus, chMode, safeSamples, scratchSidechain_.data(), scPeak);
-    } else {
-        std::fill_n(scratchSidechain_.data(), safeSamples, 0.0);
+    // Internal Signal Generator handling
+    const auto genType = static_cast<dsp::GeneratorType>(
+        static_cast<int>(apvts_.getRawParameterValue(ParamID::generatorType)->load(std::memory_order_relaxed)));
+    const float genGain = apvts_.getRawParameterValue(ParamID::generatorGainDb)->load(std::memory_order_relaxed);
+
+    if (genType != dsp::GeneratorType::Off) {
+        generator_.generate(genType, genGain, tapFloatScratch_.data(), static_cast<std::size_t>(safeSamples));
+        // If generator is active, add it to main input for test excitation
+        for (int ch = 0; ch < mainBus.getNumChannels(); ++ch) {
+            float* dest = mainBus.getWritePointer(ch);
+            for (int i = 0; i < safeSamples; ++i) {
+                dest[i] += tapFloatScratch_[i];
+            }
+        }
     }
 
-    // Default: Sidechain = Reference, Main = Measurement
+    // Extract main processed audio
+    float mainPeak = 0.0f;
+    extractChannel(mainBus, chMode, safeSamples, scratchMain_.data(), mainPeak);
+
+    // MODE 1: Tap Sender (Pre-FX tap in Ableton or any DAW)
+    if (routing == dsp::RoutingMode::TapSender) {
+        if (registeredTapChannel_ != tapCh) {
+            if (registeredTapChannel_ >= 0) dsp::InterPluginBus::getInstance().unregisterSender(registeredTapChannel_);
+            registeredTapChannel_ = tapCh;
+            dsp::InterPluginBus::getInstance().registerSender(tapCh, "TapSender", currentSampleRate_.load(std::memory_order_relaxed));
+        }
+
+        // Push current signal to inter-plugin bus as float
+        for (int i = 0; i < safeSamples; ++i) {
+            tapFloatScratch_[i] = static_cast<float>(scratchMain_[i]);
+        }
+        dsp::InterPluginBus::getInstance().pushSamples(tapCh, tapFloatScratch_.data(), static_cast<std::size_t>(safeSamples));
+
+        refPeak_.store(mainPeak, std::memory_order_relaxed);
+        measPeak_.store(0.0f, std::memory_order_relaxed);
+        tapBusActive_.store(true, std::memory_order_relaxed);
+        return; // Sender only passes audio through bit-accurately and broadcasts to receiver
+    }
+
+    // In analysis modes, unregister if we previously were sender
+    if (registeredTapChannel_ >= 0) {
+        dsp::InterPluginBus::getInstance().unregisterSender(registeredTapChannel_);
+        registeredTapChannel_ = -1;
+    }
+
+    float refPeak = 0.0f;
+    bool hasReference = false;
+
+    // MODE 2: Plugin Tap Bus (Receiver mode - connects to Tap Sender before FX)
+    if (routing == dsp::RoutingMode::PluginTapBus) {
+        const bool senderActive = dsp::InterPluginBus::getInstance().isSenderActive(tapCh);
+        tapBusActive_.store(senderActive, std::memory_order_relaxed);
+        sidechainActive_.store(false, std::memory_order_relaxed);
+
+        if (senderActive) {
+            const std::size_t read = dsp::InterPluginBus::getInstance().pullSamples(
+                tapCh, tapFloatScratch_.data(), static_cast<std::size_t>(safeSamples));
+
+            for (std::size_t i = 0; i < read; ++i) {
+                const double s = static_cast<double>(tapFloatScratch_[i]);
+                scratchSidechain_[i] = s;
+                refPeak = std::max(refPeak, static_cast<float>(std::abs(s)));
+            }
+            if (read < static_cast<std::size_t>(safeSamples)) {
+                std::fill_n(scratchSidechain_.data() + read, safeSamples - read, 0.0);
+            }
+            hasReference = (read > 0);
+        } else {
+            std::fill_n(scratchSidechain_.data(), safeSamples, 0.0);
+        }
+    }
+    // MODE 3: Internal Generator as Reference (Loopback / Standalone self-analysis)
+    else if (routing == dsp::RoutingMode::InternalGenerator) {
+        tapBusActive_.store(false, std::memory_order_relaxed);
+        sidechainActive_.store(false, std::memory_order_relaxed);
+
+        if (genType != dsp::GeneratorType::Off) {
+            for (int i = 0; i < safeSamples; ++i) {
+                const double s = static_cast<double>(tapFloatScratch_[i]);
+                scratchSidechain_[i] = s;
+                refPeak = std::max(refPeak, static_cast<float>(std::abs(s)));
+            }
+            hasReference = true;
+        } else {
+            std::fill_n(scratchSidechain_.data(), safeSamples, 0.0);
+        }
+    }
+    // MODE 0: Standard DAW Sidechain Bus (Reaper, Cubase, Studio One)
+    else {
+        tapBusActive_.store(false, std::memory_order_relaxed);
+        const bool scBusEnabled = (getBusCount(true) > 1) && getBus(true, 1)->isEnabled();
+        const int scChannels = scBusEnabled ? getBusBuffer(buffer, true, 1).getNumChannels() : 0;
+        const bool hasSidechain = scBusEnabled && (scChannels > 0);
+        sidechainActive_.store(hasSidechain, std::memory_order_relaxed);
+
+        if (hasSidechain) {
+            auto scBus = getBusBuffer(buffer, true, 1);
+            extractChannel(scBus, chMode, safeSamples, scratchSidechain_.data(), refPeak);
+            hasReference = true;
+        } else {
+            std::fill_n(scratchSidechain_.data(), safeSamples, 0.0);
+        }
+    }
+
+    // Default: Reference (scratchSidechain_) vs Measurement (scratchMain_)
     if (!swap) {
-        refPeak_.store(scPeak, std::memory_order_relaxed);
+        refPeak_.store(refPeak, std::memory_order_relaxed);
         measPeak_.store(mainPeak, std::memory_order_relaxed);
         worker_.pushAudioBlock(scratchSidechain_.data(), scratchMain_.data(), static_cast<std::size_t>(safeSamples));
     } else {
         refPeak_.store(mainPeak, std::memory_order_relaxed);
-        measPeak_.store(scPeak, std::memory_order_relaxed);
+        measPeak_.store(refPeak, std::memory_order_relaxed);
         worker_.pushAudioBlock(scratchMain_.data(), scratchSidechain_.data(), static_cast<std::size_t>(safeSamples));
     }
 }

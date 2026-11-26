@@ -2,6 +2,8 @@
 
 #include "AnalysisWorker.h"
 #include "Parameters.h"
+#include "dsp/InterPluginBus.h"
+#include "dsp/SignalGenerator.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
@@ -49,6 +51,8 @@ public:
     double getCurrentSampleRate() const noexcept { return currentSampleRate_.load(std::memory_order_relaxed); }
     int getCurrentBlockSize() const noexcept { return currentBlockSize_.load(std::memory_order_relaxed); }
     bool isSidechainActive() const noexcept { return sidechainActive_.load(std::memory_order_relaxed); }
+    bool isTapBusActive() const noexcept { return tapBusActive_.load(std::memory_order_relaxed); }
+    int getCurrentRoutingMode() const noexcept { return currentRoutingMode_.load(std::memory_order_relaxed); }
 
 private:
     void parameterChanged(const juce::String& parameterID, float newValue) override;
@@ -56,16 +60,22 @@ private:
 
     juce::AudioProcessorValueTreeState apvts_;
     AnalysisWorker worker_;
+    dsp::SignalGenerator generator_;
 
     // Pre-allocated scratch buffers for audio callback (zero allocs in processBlock)
     std::vector<double> scratchMain_;
     std::vector<double> scratchSidechain_;
+    std::vector<float> tapFloatScratch_;
 
     std::atomic<float> refPeak_{0.0f};
     std::atomic<float> measPeak_{0.0f};
     std::atomic<double> currentSampleRate_{48000.0};
     std::atomic<int> currentBlockSize_{512};
     std::atomic<bool> sidechainActive_{false};
+    std::atomic<bool> tapBusActive_{false};
+    std::atomic<int> currentRoutingMode_{1}; // 1 = PluginTapBus
+
+    int registeredTapChannel_ = -1;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DSPAnalysisProcessor)
 };

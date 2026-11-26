@@ -10,6 +10,7 @@ PluginEditor::PluginEditor(plugin::DSPAnalysisProcessor& processor)
     setLookAndFeel(&lookAndFeel_);
     addAndMakeVisible(controlBar_);
     addAndMakeVisible(plot_);
+    addChildComponent(helpOverlay_);
 
     controlBar_.onFreezeChanged = [this](bool frozen) {
         isFrozen_ = frozen;
@@ -37,10 +38,19 @@ PluginEditor::PluginEditor(plugin::DSPAnalysisProcessor& processor)
             }
         }
     };
+    controlBar_.onToggleAdvanced = [this] {
+        isAdvancedOpen_ = !isAdvancedOpen_;
+        controlBar_.setAdvancedOpen(isAdvancedOpen_);
+        resized();
+    };
+    controlBar_.onOpenHelp = [this] {
+        helpOverlay_.setVisible(true);
+        helpOverlay_.toFront(true);
+    };
 
     setResizable(true, true);
-    setResizeLimits(880, 580, 2400, 1600);
-    setSize(1120, 720);
+    setResizeLimits(920, 600, 2400, 1600);
+    setSize(1140, 740);
 
     startTimerHz(30);
 }
@@ -70,6 +80,8 @@ void PluginEditor::timerCallback() {
         processor_.getCurrentSampleRate(),
         processor_.getCurrentBlockSize(),
         processor_.isSidechainActive(),
+        processor_.isTapBusActive(),
+        processor_.getCurrentRoutingMode(),
         latestFrame_.delayEstimate);
 }
 
@@ -79,8 +91,10 @@ void PluginEditor::paint(juce::Graphics& g) {
 
 void PluginEditor::resized() {
     auto area = getLocalBounds();
-    controlBar_.setBounds(area.removeFromTop(102));
+    const int barHeight = isAdvancedOpen_ ? 138 : 74;
+    controlBar_.setBounds(area.removeFromTop(barHeight));
     plot_.setBounds(area.reduced(8, 6));
+    helpOverlay_.setBounds(getLocalBounds());
 }
 
 } // namespace ui
