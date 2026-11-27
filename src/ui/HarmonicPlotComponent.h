@@ -280,7 +280,7 @@ public:
             // Elegant Apple Waiting Placeholder
             g.setColour(Theme::textMuted);
             g.setFont(juce::FontOptions(13.0f, juce::Font::plain));
-            g.drawText("Awaiting Signal \xE2\x80\x94 Feed a pure sine wave (e.g. 1 kHz) to analyze harmonic distortion & THD.",
+            g.drawText("Awaiting Signal - Feed a pure sine wave (e.g. 1 kHz) to analyze harmonic distortion & THD.",
                        area.toNearestInt(), juce::Justification::centred);
         }
 

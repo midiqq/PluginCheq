@@ -242,7 +242,7 @@ public:
             // Elegant Apple Waiting Placeholder
             g.setColour(Theme::textMuted);
             g.setFont(juce::FontOptions(13.0f, juce::Font::plain));
-            g.drawText("Awaiting Signal \xE2\x80\x94 Feed dynamic audio or test ramp through DUT to map compression curve.",
+            g.drawText("Awaiting Signal - Feed dynamic audio or test ramp through DUT to map compression curve.",
                        area.toNearestInt(), juce::Justification::centred);
         }
 

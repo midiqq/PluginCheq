@@ -3,7 +3,6 @@
 
 #include <cmath>
 #include <algorithm>
-#include <array>
 
 namespace ui {
 
@@ -17,92 +16,18 @@ ControlBarComponent::ControlBarComponent(plugin::DSPAnalysisProcessor& processor
     : processor_(processor) {
     auto& apvts = processor_.apvts();
 
-    auto initCombo = [this](juce::ComboBox& box, const char* paramId) {
+    auto initCombo = [this](juce::ComboBox& box, const char* paramId, bool visibleByDefault) {
         if (auto* param = dynamic_cast<juce::AudioParameterChoice*>(processor_.apvts().getParameter(paramId))) {
             box.addItemList(param->choices, 1);
         }
-        addChildComponent(box);
-    };
-
-    // --- TE PRIMARY ACTION STRIP (LEFT) ---
-    // [⚡ ALIGN] (Teenage Engineering vibrant orange #FF5A00 accent)
-    alignButton_.setComponentID("TE_ORANGE");
-    alignButton_.setTooltip("Auto-detect and compensate latency delay (⚡ TE Orange)");
-    alignButton_.onClick = [this] {
-        if (onFindDelayClicked) onFindDelayClicked();
-    };
-    addAndMakeVisible(alignButton_);
-
-    // [A / B] (Smart snapshot toggle & store)
-    abButton_.setTooltip("Click to toggle/store snapshot A or B");
-    abButton_.onClick = [this] {
-        if (abState_ == 0) {
-            abState_ = 1;
-            if (onStoreSnapshotA) onStoreSnapshotA();
-            if (onShowSnapshotAChanged) onShowSnapshotAChanged(true);
-            if (onShowSnapshotBChanged) onShowSnapshotBChanged(false);
-            showAButton_.setToggleState(true, juce::dontSendNotification);
-            showBButton_.setToggleState(false, juce::dontSendNotification);
-            abButton_.setButtonText("A");
-        } else if (abState_ == 1) {
-            abState_ = 2;
-            if (onStoreSnapshotB) onStoreSnapshotB();
-            if (onShowSnapshotAChanged) onShowSnapshotAChanged(false);
-            if (onShowSnapshotBChanged) onShowSnapshotBChanged(true);
-            showAButton_.setToggleState(false, juce::dontSendNotification);
-            showBButton_.setToggleState(true, juce::dontSendNotification);
-            abButton_.setButtonText("B");
-        } else if (abState_ == 2) {
-            abState_ = 3;
-            if (onShowSnapshotAChanged) onShowSnapshotAChanged(true);
-            if (onShowSnapshotBChanged) onShowSnapshotBChanged(true);
-            showAButton_.setToggleState(true, juce::dontSendNotification);
-            showBButton_.setToggleState(true, juce::dontSendNotification);
-            abButton_.setButtonText("A+B");
+        if (visibleByDefault) {
+            addAndMakeVisible(box);
         } else {
-            abState_ = 0;
-            if (onShowSnapshotAChanged) onShowSnapshotAChanged(false);
-            if (onShowSnapshotBChanged) onShowSnapshotBChanged(false);
-            showAButton_.setToggleState(false, juce::dontSendNotification);
-            showBButton_.setToggleState(false, juce::dontSendNotification);
-            abButton_.setButtonText("A / B");
-        }
-        abButton_.setToggleState(abState_ > 0, juce::dontSendNotification);
-    };
-    addAndMakeVisible(abButton_);
-
-    // [FREEZE]
-    freezeButton_.setClickingTogglesState(true);
-    freezeButton_.onClick = [this] {
-        if (onFreezeChanged) onFreezeChanged(freezeButton_.getToggleState());
-    };
-    addAndMakeVisible(freezeButton_);
-
-    // [RESET]
-    resetAvgButton_.onClick = [this] {
-        processor_.worker().requestResetAveraging();
-    };
-    addAndMakeVisible(resetAvgButton_);
-
-    // [SMOOTH] (cycles through fractional octave smoothing)
-    smoothButton_.setTooltip("Cycle fractional octave smoothing");
-    smoothButton_.onClick = [this] {
-        auto* param = processor_.apvts().getParameter(plugin::ParamID::smoothingMode);
-        if (auto* choice = dynamic_cast<juce::AudioParameterChoice*>(param)) {
-            int next = (choice->getIndex() + 1) % static_cast<int>(choice->choices.size());
-            param->setValueNotifyingHost(param->convertTo0to1(static_cast<float>(next)));
-            updateSmoothButtonState();
+            addChildComponent(box);
         }
     };
-    addAndMakeVisible(smoothButton_);
-    updateSmoothButtonState();
 
-    // [SWAP]
-    swapButton_.setClickingTogglesState(true);
-    swapAtt_ = std::make_unique<ButtonAttachment>(apvts, plugin::ParamID::swapRefMeas, swapButton_);
-    addAndMakeVisible(swapButton_);
-
-    // --- VIEW SELECTORS (CENTER TABS: [EQ] | [DYNAMICS] | [THD]) ---
+    // --- VIEW SELECTORS (Apple Segmented Control) ---
     auto setupViewBtn = [this](juce::TextButton& btn, int idx) {
         btn.setClickingTogglesState(true);
         btn.setRadioGroupId(1001);
@@ -118,79 +43,92 @@ ControlBarComponent::ControlBarComponent(plugin::DSPAnalysisProcessor& processor
     setupViewBtn(viewHarmonicsBtn_, 2);
     viewTransferBtn_.setToggleState(true, juce::dontSendNotification);
 
-    // --- RIGHT WIDGETS ---
-    settingsButton_.setClickingTogglesState(true);
-    settingsButton_.setTooltip("Open Advanced Settings Drawer");
-    settingsButton_.onClick = [this] {
+    // --- ROW 1: Primary Action Buttons ---
+    addAndMakeVisible(findDelayButton_);
+    findDelayButton_.onClick = [this] {
+        if (onFindDelayClicked) onFindDelayClicked();
+    };
+
+    addAndMakeVisible(freezeButton_);
+    freezeButton_.setClickingTogglesState(true);
+    freezeButton_.onClick = [this] {
+        if (onFreezeChanged) onFreezeChanged(freezeButton_.getToggleState());
+    };
+
+    addAndMakeVisible(resetAvgButton_);
+    resetAvgButton_.onClick = [this] { processor_.worker().requestResetAveraging(); };
+
+    addAndMakeVisible(advancedToggleBtn_);
+    advancedToggleBtn_.setClickingTogglesState(true);
+    advancedToggleBtn_.onClick = [this] {
         if (onToggleAdvanced) onToggleAdvanced();
     };
-    addAndMakeVisible(settingsButton_);
 
-    helpBtn_.setTooltip("Keyboard Shortcuts & Guide");
+    addAndMakeVisible(helpBtn_);
     helpBtn_.onClick = [this] {
         if (onOpenHelp) onOpenHelp();
     };
-    addChildComponent(helpBtn_);
 
-    // --- ADVANCED DRAWER CONTROLS (STORED SAFELY IN DRAWER) ---
-    initCombo(routingBox_, plugin::ParamID::routingMode);
+    // --- ROW 2: Primary Measurement Controls ---
+    initCombo(routingBox_, plugin::ParamID::routingMode, true);
     routingAtt_ = std::make_unique<ComboAttachment>(apvts, plugin::ParamID::routingMode, routingBox_);
 
-    initCombo(tapChannelBox_, plugin::ParamID::tapChannel);
+    initCombo(tapChannelBox_, plugin::ParamID::tapChannel, true);
     tapChannelAtt_ = std::make_unique<ComboAttachment>(apvts, plugin::ParamID::tapChannel, tapChannelBox_);
 
-    initCombo(smoothingBox_, plugin::ParamID::smoothingMode);
+    addAndMakeVisible(swapButton_);
+    swapButton_.setClickingTogglesState(true);
+    swapAtt_ = std::make_unique<ButtonAttachment>(apvts, plugin::ParamID::swapRefMeas, swapButton_);
+
+    initCombo(smoothingBox_, plugin::ParamID::smoothingMode, true);
     smoothingAtt_ = std::make_unique<ComboAttachment>(apvts, plugin::ParamID::smoothingMode, smoothingBox_);
 
-    initCombo(channelBox_, plugin::ParamID::channelMode);
+    initCombo(channelBox_, plugin::ParamID::channelMode, true);
     channelAtt_ = std::make_unique<ComboAttachment>(apvts, plugin::ParamID::channelMode, channelBox_);
 
-    addChildComponent(storeAButton_);
+    addAndMakeVisible(storeAButton_);
     storeAButton_.onClick = [this] {
-        abState_ = 1;
-        abButton_.setButtonText("A");
-        abButton_.setToggleState(true, juce::dontSendNotification);
         showAButton_.setToggleState(true, juce::dontSendNotification);
         if (onStoreSnapshotA) onStoreSnapshotA();
     };
 
-    addChildComponent(showAButton_);
+    addAndMakeVisible(showAButton_);
+    showAButton_.setToggleState(true, juce::dontSendNotification);
     showAButton_.onClick = [this] {
         if (onShowSnapshotAChanged) onShowSnapshotAChanged(showAButton_.getToggleState());
     };
 
-    addChildComponent(storeBButton_);
+    addAndMakeVisible(storeBButton_);
     storeBButton_.onClick = [this] {
-        abState_ = 2;
-        abButton_.setButtonText("B");
-        abButton_.setToggleState(true, juce::dontSendNotification);
         showBButton_.setToggleState(true, juce::dontSendNotification);
         if (onStoreSnapshotB) onStoreSnapshotB();
     };
 
-    addChildComponent(showBButton_);
+    addAndMakeVisible(showBButton_);
+    showBButton_.setToggleState(true, juce::dontSendNotification);
     showBButton_.onClick = [this] {
         if (onShowSnapshotBChanged) onShowSnapshotBChanged(showBButton_.getToggleState());
     };
 
-    initCombo(fftSizeBox_, plugin::ParamID::fftSizeIndex);
+    // --- ADVANCED DRAWER CONTROLS (Hidden until Advanced is toggled) ---
+    initCombo(fftSizeBox_, plugin::ParamID::fftSizeIndex, false);
     fftAtt_ = std::make_unique<ComboAttachment>(apvts, plugin::ParamID::fftSizeIndex, fftSizeBox_);
 
-    initCombo(windowBox_, plugin::ParamID::windowType);
+    initCombo(windowBox_, plugin::ParamID::windowType, false);
     windowAtt_ = std::make_unique<ComboAttachment>(apvts, plugin::ParamID::windowType, windowBox_);
 
-    initCombo(avgModeBox_, plugin::ParamID::averagingMode);
+    initCombo(avgModeBox_, plugin::ParamID::averagingMode, false);
     avgModeAtt_ = std::make_unique<ComboAttachment>(apvts, plugin::ParamID::averagingMode, avgModeBox_);
 
     alphaSlider_.setSliderStyle(juce::Slider::LinearHorizontal);
-    alphaSlider_.setTextBoxStyle(juce::Slider::TextBoxRight, false, 36, 18);
+    alphaSlider_.setTextBoxStyle(juce::Slider::TextBoxRight, false, 38, 18);
     addChildComponent(alphaSlider_);
     addChildComponent(alphaLabel_);
     alphaLabel_.setColour(juce::Label::textColourId, Theme::textSecondary);
-    alphaLabel_.setFont(juce::FontOptions(10.5f, juce::Font::plain));
+    alphaLabel_.setFont(juce::FontOptions(11.0f, juce::Font::plain));
     alphaAtt_ = std::make_unique<SliderAttachment>(apvts, plugin::ParamID::averagingAlpha, alphaSlider_);
 
-    initCombo(magRangeBox_, plugin::ParamID::magRangeDb);
+    initCombo(magRangeBox_, plugin::ParamID::magRangeDb, false);
     magRangeAtt_ = std::make_unique<ComboAttachment>(apvts, plugin::ParamID::magRangeDb, magRangeBox_);
 
     addChildComponent(unwrapButton_);
@@ -203,20 +141,12 @@ ControlBarComponent::ControlBarComponent(plugin::DSPAnalysisProcessor& processor
     delayCompAtt_ = std::make_unique<ButtonAttachment>(apvts, plugin::ParamID::delayCompEnabled, delayCompButton_);
 
     delayMsSlider_.setSliderStyle(juce::Slider::LinearHorizontal);
-    delayMsSlider_.setTextBoxStyle(juce::Slider::TextBoxRight, false, 46, 18);
+    delayMsSlider_.setTextBoxStyle(juce::Slider::TextBoxRight, false, 48, 18);
     addChildComponent(delayMsSlider_);
     addChildComponent(delayMsLabel_);
     delayMsLabel_.setColour(juce::Label::textColourId, Theme::textSecondary);
-    delayMsLabel_.setFont(juce::FontOptions(10.5f, juce::Font::plain));
+    delayMsLabel_.setFont(juce::FontOptions(11.0f, juce::Font::plain));
     delayMsAtt_ = std::make_unique<SliderAttachment>(apvts, plugin::ParamID::delayCompMs, delayMsSlider_);
-}
-
-void ControlBarComponent::updateSmoothButtonState() {
-    auto* param = processor_.apvts().getParameter(plugin::ParamID::smoothingMode);
-    if (auto* choice = dynamic_cast<juce::AudioParameterChoice*>(param)) {
-        const int idx = choice->getIndex();
-        smoothButton_.setToggleState(idx > 0, juce::dontSendNotification);
-    }
 }
 
 void ControlBarComponent::updateViewButtonStates() {
@@ -228,32 +158,19 @@ void ControlBarComponent::updateViewButtonStates() {
 
 void ControlBarComponent::setAdvancedOpen(bool isOpen) {
     isAdvancedOpen_ = isOpen;
-    settingsButton_.setToggleState(isOpen, juce::dontSendNotification);
-
-    routingBox_.setVisible(isOpen);
-    tapChannelBox_.setVisible(isOpen);
-    smoothingBox_.setVisible(isOpen);
-    channelBox_.setVisible(isOpen);
-
-    storeAButton_.setVisible(isOpen);
-    showAButton_.setVisible(isOpen);
-    storeBButton_.setVisible(isOpen);
-    showBButton_.setVisible(isOpen);
+    advancedToggleBtn_.setToggleState(isOpen, juce::dontSendNotification);
 
     fftSizeBox_.setVisible(isOpen);
     windowBox_.setVisible(isOpen);
     avgModeBox_.setVisible(isOpen);
     alphaSlider_.setVisible(isOpen);
     alphaLabel_.setVisible(isOpen);
-
     magRangeBox_.setVisible(isOpen);
     unwrapButton_.setVisible(isOpen);
     showH2Button_.setVisible(isOpen);
-
     delayCompButton_.setVisible(isOpen);
     delayMsSlider_.setVisible(isOpen);
     delayMsLabel_.setVisible(isOpen);
-    helpBtn_.setVisible(isOpen);
 
     resized();
     repaint();
@@ -275,222 +192,214 @@ void ControlBarComponent::updateStatus(float refPeak,
     tapBusActive_ = tapBusActive;
     routingMode_ = routingMode;
     delayEstimate_ = delayEstimate;
-    updateSmoothButtonState();
     repaint();
 }
 
 void ControlBarComponent::paint(juce::Graphics& g) {
-    // 1. Slim TE Top Bar Background
-    g.setColour(Theme::barBg);
-    g.fillRect(0, 0, getWidth(), 38);
-
+    g.fillAll(Theme::barBg);
     g.setColour(Theme::borderSubtle);
-    g.drawHorizontalLine(37, 0.0f, static_cast<float>(getWidth()));
+    g.drawHorizontalLine(getHeight() - 1, 0.0f, static_cast<float>(getWidth()));
 
-    // 2. Center Tabs Segmented Capsule Track
+    // --- LEFT: Brand Wordmark & Dynamic Telemetry ---
+    g.setColour(Theme::textPrimary);
+    g.setFont(juce::FontOptions(15.0f, juce::Font::bold));
+    g.drawText("PluginCheq", 14, 7, 112, 18, juce::Justification::centredLeft, false);
+
+    g.setColour(Theme::textSecondary);
+    g.setFont(juce::FontOptions(9.5f, juce::Font::plain));
+    g.drawText("PRECISION DSP LAB", 14, 24, 112, 12, juce::Justification::centredLeft, false);
+
+    // Dynamic routing status pill badge
+    juce::String routeBadge;
+    juce::Colour badgeCol = Theme::textMuted;
+
+    if (routingMode_ == 2) { // Tap Sender
+        routeBadge = "SENDING TAP...";
+        badgeCol = Theme::traceMagnitude;
+    } else if (routingMode_ == 1) { // Plugin Tap Bus
+        routeBadge = tapBusActive_ ? "TAP: LOCKED" : "TAP: SEARCHING";
+        badgeCol = tapBusActive_ ? Theme::statusOk : Theme::statusSearching;
+    } else { // DAW Sidechain
+        routeBadge = sidechainActive_ ? "SIDECHAIN: OK" : "NO SIDECHAIN";
+        badgeCol = sidechainActive_ ? Theme::statusOk : Theme::textMuted;
+    }
+
+    const float routePillY = 39.0f;
+    g.setColour(Theme::controlSurface);
+    g.fillRoundedRectangle(14.0f, routePillY, 112.0f, 15.0f, 3.0f);
+    g.setColour(badgeCol.withAlpha(0.6f));
+    g.drawRoundedRectangle(14.0f, routePillY, 112.0f, 15.0f, 3.0f, 1.0f);
+    g.setColour(badgeCol);
+    g.setFont(juce::FontOptions(9.0f, juce::Font::bold));
+    g.drawText(routeBadge, 14, static_cast<int>(routePillY), 112, 15, juce::Justification::centred, false);
+
+    // Delay status pill
+    const float delayPillY = 56.0f;
+    juce::String delayStr = delayEstimate_.valid
+        ? (juce::String(delayEstimate_.delayMs, 2) + " ms (" + juce::String(delayEstimate_.delaySamples, 1) + " spl)")
+        : "Delay: --";
+    g.setColour(Theme::controlSurface);
+    g.fillRoundedRectangle(14.0f, delayPillY, 112.0f, 15.0f, 3.0f);
+    g.setColour(Theme::borderSubtle);
+    g.drawRoundedRectangle(14.0f, delayPillY, 112.0f, 15.0f, 3.0f, 1.0f);
+    g.setColour(delayEstimate_.valid ? Theme::statusOk : Theme::textMuted);
+    g.fillEllipse(18.0f, delayPillY + 4.5f, 6.0f, 6.0f);
+    g.setColour(delayEstimate_.valid ? Theme::textPrimary : Theme::textMuted);
+    g.setFont(juce::FontOptions(9.0f, juce::Font::plain));
+    g.drawText(delayStr, 27, static_cast<int>(delayPillY), 97, 15, juce::Justification::centredLeft, false);
+
+    // --- SEGMENTED TABS RECESSED CAPSULE CONTAINER ---
     if (!segmentedCapsuleBounds_.isEmpty()) {
         const auto capF = segmentedCapsuleBounds_.toFloat().reduced(0.5f);
         g.setColour(Theme::segmentedTrack);
-        g.fillRoundedRectangle(capF, 4.0f);
+        g.fillRoundedRectangle(capF, 6.0f);
         g.setColour(Theme::borderSubtle);
-        g.drawRoundedRectangle(capF, 4.0f, 1.0f);
+        g.drawRoundedRectangle(capF, 6.0f, 1.0f);
     }
 
-    // 3. Digital Delay Readout Pill (TE Precision Telemetry)
-    if (!delayBadgeBounds_.isEmpty()) {
-        const auto badgeF = delayBadgeBounds_.toFloat().reduced(0.5f);
+    // --- RIGHT: Precision Dual Meters & Host Telemetry ---
+    const float meterAreaW = 224.0f;
+    const float meterX = static_cast<float>(getWidth()) - meterAreaW - 12.0f;
+    const float refDb = linearToDb(refPeak_);
+    const float measDb = linearToDb(measPeak_);
+
+    g.setFont(juce::FontOptions(10.0f, juce::Font::plain));
+    g.setColour(Theme::textSecondary);
+    g.drawText("REF", static_cast<int>(meterX), 8, 36, 14, juce::Justification::centredLeft, false);
+    g.drawText("MEAS", static_cast<int>(meterX), 25, 36, 14, juce::Justification::centredLeft, false);
+
+    auto drawMeterBar = [&](float y, float db, juce::Colour col) {
+        const float barX = meterX + 38.0f;
+        const float barW = 110.0f;
+        const float norm = std::clamp((db + 60.0f) / 60.0f, 0.0f, 1.0f);
+
         g.setColour(Theme::controlSurface);
-        g.fillRoundedRectangle(badgeF, 3.0f);
-        g.setColour(Theme::borderSubtle);
-        g.drawRoundedRectangle(badgeF, 3.0f, 1.0f);
+        g.fillRoundedRectangle(barX, y + 2.0f, barW, 7.0f, 2.5f);
 
-        // Status LED dot
-        const float dotX = badgeF.getX() + 6.0f;
-        const float dotY = badgeF.getCentreY() - 2.5f;
-        g.setColour(delayEstimate_.valid ? Theme::statusOk : Theme::textMuted);
-        g.fillEllipse(dotX, dotY, 5.0f, 5.0f);
+        if (norm > 0.005f) {
+            g.setColour(db > -0.1f ? Theme::meterClip : col);
+            g.fillRoundedRectangle(barX, y + 2.0f, barW * norm, 7.0f, 2.5f);
+        }
 
-        // Digital delay readout
-        juce::String delayStr = delayEstimate_.valid
-            ? ("DELAY: " + juce::String(delayEstimate_.delayMs, 2) + " ms")
-            : "DELAY: 0.00 ms";
+        if (db > -0.1f) {
+            g.setColour(Theme::meterClip);
+            g.fillEllipse(barX + barW - 6.0f, y + 2.5f, 6.0f, 6.0f);
+        }
 
-        g.setColour(delayEstimate_.valid ? Theme::textPrimary : Theme::textSecondary);
-        g.setFont(juce::FontOptions(9.0f, juce::Font::bold));
-        g.drawText(delayStr, static_cast<int>(dotX + 8.0f), static_cast<int>(badgeF.getY()),
-                   static_cast<int>(badgeF.getWidth() - 14.0f), static_cast<int>(badgeF.getHeight()),
+        g.setColour(db > -0.1f ? Theme::meterClip : Theme::textSecondary);
+        g.setFont(juce::FontOptions(10.0f, juce::Font::plain));
+        g.drawText(db <= -119.0f ? "-inf" : (juce::String(db, 1) + " dB"),
+                   static_cast<int>(barX + barW + 6.0f), static_cast<int>(y), 56, 14,
                    juce::Justification::centredLeft, false);
-    }
+    };
 
-    // 4. Compact Segmented LED Meters (REF & MEAS)
-    if (!metersBounds_.isEmpty()) {
-        static constexpr std::array<float, 10> kThresholds = {
-            -48.0f, -36.0f, -24.0f, -18.0f, -12.0f, -8.0f, -5.0f, -3.0f, -1.0f, -0.2f
-        };
+    drawMeterBar(8.0f, refDb, Theme::meterRef);
+    drawMeterBar(25.0f, measDb, Theme::meterMeas);
 
-        const float refDb = linearToDb(refPeak_);
-        const float measDb = linearToDb(measPeak_);
+    const juce::String info = juce::String(sampleRate_ / 1000.0, 1) + " kHz  |  "
+        + juce::String(blockSize_) + " spl";
+    g.setColour(Theme::textMuted);
+    g.setFont(juce::FontOptions(10.0f, juce::Font::plain));
+    g.drawText(info, static_cast<int>(meterX), 44, 200, 14, juce::Justification::centredLeft, false);
 
-        auto drawLedMeter = [&](float y, const char* name, float db) {
-            // Label
-            g.setColour(Theme::textSecondary);
-            g.setFont(juce::FontOptions(8.5f, juce::Font::bold));
-            g.drawText(name, metersBounds_.getX(), static_cast<int>(y), 24, 12, juce::Justification::centredLeft, false);
-
-            // 10 Segmented LED Bricks
-            float segX = static_cast<float>(metersBounds_.getX() + 26);
-            constexpr float segW = 5.0f;
-            constexpr float segH = 7.0f;
-            constexpr float gap = 2.0f;
-
-            for (std::size_t i = 0; i < kThresholds.size(); ++i) {
-                const bool isLit = (db >= kThresholds[i]);
-                juce::Colour segCol = Theme::meterGreen;
-                if (i >= 8) segCol = Theme::meterRed;
-                else if (i >= 6) segCol = Theme::meterAmber;
-
-                g.setColour(isLit ? segCol : Theme::meterOff);
-                g.fillRoundedRectangle(segX, y + 2.5f, segW, segH, 1.0f);
-                segX += (segW + gap);
-            }
-
-            // Numeric dB readout
-            g.setColour(db > -0.2f ? Theme::meterRed : Theme::textSecondary);
-            g.setFont(juce::FontOptions(8.5f, juce::Font::plain));
-            juce::String valStr = (db <= -60.0f) ? "-inf" : (juce::String(static_cast<int>(std::round(db))) + " dB");
-            g.drawText(valStr, static_cast<int>(segX + 2.0f), static_cast<int>(y), 32, 12, juce::Justification::centredLeft, false);
-        };
-
-        drawLedMeter(static_cast<float>(metersBounds_.getY() + 1), "REF", refDb);
-        drawLedMeter(static_cast<float>(metersBounds_.getY() + 15), "MEAS", measDb);
-    }
-
-    // 5. Expandable Settings Drawer (Grouped Laboratory Parameter Deck)
+    // Divider line & aligned group headings for Advanced Drawer if expanded
     if (isAdvancedOpen_) {
-        const int drawerTop = 38;
-        const int drawerHeight = getHeight() - drawerTop;
-        g.setColour(Theme::drawerBg);
-        g.fillRect(0, drawerTop, getWidth(), drawerHeight);
-
         g.setColour(Theme::borderSubtle);
-        g.drawHorizontalLine(getHeight() - 1, 0.0f, static_cast<float>(getWidth()));
+        g.drawHorizontalLine(76, 12.0f, static_cast<float>(getWidth() - 12));
 
-        // Group headings with technical micro-typography
         g.setColour(Theme::textMuted);
-        g.setFont(juce::FontOptions(9.0f, juce::Font::bold));
-
-        g.drawText("ANALYSIS ENGINE", 14, drawerTop + 4, 180, 14, juce::Justification::centredLeft, false);
-        g.drawText("ROUTING & CHANNELS", 370, drawerTop + 4, 160, 14, juce::Justification::centredLeft, false);
-        g.drawText("DISPLAY & SNAPSHOTS", 600, drawerTop + 4, 180, 14, juce::Justification::centredLeft, false);
-        g.drawText("TIME ALIGNMENT", 920, drawerTop + 4, 160, 14, juce::Justification::centredLeft, false);
+        g.setFont(juce::FontOptions(9.5f, juce::Font::bold));
+        g.drawText("ANALYSIS ENGINE", drawerSec1X_, 81, 160, 14, juce::Justification::centredLeft, false);
+        g.drawText("DISPLAY SCALING", drawerSec2X_, 81, 160, 14, juce::Justification::centredLeft, false);
+        g.drawText("TIME ALIGNMENT", drawerSec3X_, 81, 160, 14, juce::Justification::centredLeft, false);
     }
 }
 
 void ControlBarComponent::resized() {
-    constexpr int barH = 38;
+    auto topArea = juce::Rectangle<int>(0, 0, getWidth(), 74).reduced(10, 6);
+    topArea.removeFromLeft(128);  // Space for brand wordmark & delay/routing badges
+    topArea.removeFromRight(232); // Space for precision meters & host telemetry
 
-    // --- LEFT: Compact TE Action Strip ---
-    int leftX = 8;
-    constexpr int btnH = 26;
-    constexpr int btnY = (barH - btnH) / 2;
+    // --- ROW 1: Segmented View Selector + Primary Action Buttons ---
+    auto row1 = topArea.removeFromTop(28);
 
-    alignButton_.setBounds(leftX, btnY, 68, btnH);
-    leftX += 72;
+    constexpr int segW1 = 94;
+    constexpr int segW2 = 82;
+    constexpr int segW3 = 114;
+    segmentedCapsuleBounds_ = juce::Rectangle<int>(row1.getX(), row1.getY(), segW1 + segW2 + segW3 + 4, 28);
 
-    abButton_.setBounds(leftX, btnY, 44, btnH);
-    leftX += 48;
-
-    freezeButton_.setBounds(leftX, btnY, 56, btnH);
-    leftX += 60;
-
-    resetAvgButton_.setBounds(leftX, btnY, 48, btnH);
-    leftX += 52;
-
-    smoothButton_.setBounds(leftX, btnY, 58, btnH);
-    leftX += 62;
-
-    swapButton_.setBounds(leftX, btnY, 48, btnH);
-
-    // --- CENTER: Compact View Selector Tabs [EQ] | [DYNAMICS] | [THD] ---
-    constexpr int segW1 = 44;
-    constexpr int segW2 = 74;
-    constexpr int segW3 = 46;
-    constexpr int totalSegW = segW1 + segW2 + segW3 + 4;
-    const int segX = (getWidth() - totalSegW) / 2;
-
-    segmentedCapsuleBounds_ = juce::Rectangle<int>(segX, btnY, totalSegW, btnH);
-    auto segArea = segmentedCapsuleBounds_.reduced(2, 2);
+    auto segArea = row1.removeFromLeft(segW1 + segW2 + segW3 + 4).reduced(2, 2);
     viewTransferBtn_.setBounds(segArea.removeFromLeft(segW1));
     viewDynamicsBtn_.setBounds(segArea.removeFromLeft(segW2));
     viewHarmonicsBtn_.setBounds(segArea.removeFromLeft(segW3));
 
-    // --- RIGHT: Settings Gear, Segmented LED Meters, Digital Delay ---
-    int rightX = getWidth() - 8;
+    row1.removeFromLeft(12);
 
-    // Gear [⚙] button
-    rightX -= 26;
-    settingsButton_.setBounds(rightX, btnY, 26, btnH);
+    findDelayButton_.setBounds(row1.removeFromLeft(126));
+    row1.removeFromLeft(6);
+    freezeButton_.setBounds(row1.removeFromLeft(54));
+    row1.removeFromLeft(5);
+    resetAvgButton_.setBounds(row1.removeFromLeft(48));
+    row1.removeFromLeft(8);
+    advancedToggleBtn_.setBounds(row1.removeFromLeft(86));
+    row1.removeFromLeft(6);
+    helpBtn_.setBounds(row1.removeFromLeft(26));
 
-    // Segmented LED Meters
-    rightX -= 138;
-    metersBounds_ = juce::Rectangle<int>(rightX, 4, 132, 30);
+    topArea.removeFromTop(8);
 
-    // Digital Delay Readout Pill
-    rightX -= 108;
-    delayBadgeBounds_ = juce::Rectangle<int>(rightX, (barH - 22) / 2, 102, 22);
+    // --- ROW 2: Primary Measurement Bar ---
+    auto row2 = topArea.removeFromTop(26);
+    routingBox_.setBounds(row2.removeFromLeft(152));
+    row2.removeFromLeft(6);
+    tapChannelBox_.setBounds(row2.removeFromLeft(64));
+    row2.removeFromLeft(6);
+    swapButton_.setBounds(row2.removeFromLeft(58));
+    row2.removeFromLeft(10);
+    smoothingBox_.setBounds(row2.removeFromLeft(104));
+    row2.removeFromLeft(6);
+    channelBox_.setBounds(row2.removeFromLeft(86));
+    row2.removeFromLeft(12);
+    storeAButton_.setBounds(row2.removeFromLeft(52));
+    row2.removeFromLeft(3);
+    showAButton_.setBounds(row2.removeFromLeft(26));
+    row2.removeFromLeft(6);
+    storeBButton_.setBounds(row2.removeFromLeft(52));
+    row2.removeFromLeft(3);
+    showBButton_.setBounds(row2.removeFromLeft(26));
 
-    // --- EXPANDABLE ADVANCED SETTINGS DRAWER ---
+    // --- ADVANCED SETTINGS DRAWER (Full Width below Y=76 so headings & controls never collide) ---
     if (isAdvancedOpen_) {
-        constexpr int drawerRowY = 38 + 22;
-        constexpr int ctlH = 24;
+        auto drawerRow = juce::Rectangle<int>(16, 98, getWidth() - 32, 26);
 
         // Section 1: Analysis Engine
-        int ctlX = 14;
-        fftSizeBox_.setBounds(ctlX, drawerRowY, 68, ctlH);
-        ctlX += 72;
-        windowBox_.setBounds(ctlX, drawerRowY, 96, ctlH);
-        ctlX += 100;
-        avgModeBox_.setBounds(ctlX, drawerRowY, 82, ctlH);
-        ctlX += 86;
-        alphaLabel_.setBounds(ctlX, drawerRowY, 36, ctlH);
-        ctlX += 38;
-        alphaSlider_.setBounds(ctlX, drawerRowY, 56, ctlH);
+        drawerSec1X_ = drawerRow.getX();
+        fftSizeBox_.setBounds(drawerRow.removeFromLeft(78));
+        drawerRow.removeFromLeft(6);
+        windowBox_.setBounds(drawerRow.removeFromLeft(132));
+        drawerRow.removeFromLeft(6);
+        avgModeBox_.setBounds(drawerRow.removeFromLeft(92));
+        drawerRow.removeFromLeft(6);
+        alphaLabel_.setBounds(drawerRow.removeFromLeft(42));
+        alphaSlider_.setBounds(drawerRow.removeFromLeft(86));
 
-        // Section 2: Routing & Channels
-        ctlX = 370;
-        routingBox_.setBounds(ctlX, drawerRowY, 108, ctlH);
-        ctlX += 112;
-        tapChannelBox_.setBounds(ctlX, drawerRowY, 48, ctlH);
-        ctlX += 52;
-        smoothingBox_.setBounds(ctlX, drawerRowY, 84, ctlH);
-        ctlX += 88;
-        channelBox_.setBounds(ctlX, drawerRowY, 60, ctlH);
+        drawerRow.removeFromLeft(22);
 
-        // Section 3: Display & Snapshots
-        ctlX = 744;
-        magRangeBox_.setBounds(ctlX, drawerRowY, 68, ctlH);
-        ctlX += 72;
-        unwrapButton_.setBounds(ctlX, drawerRowY, 74, ctlH);
-        ctlX += 78;
-        showH2Button_.setBounds(ctlX, drawerRowY, 54, ctlH);
-        ctlX += 58;
-        storeAButton_.setBounds(ctlX, drawerRowY, 46, ctlH);
-        ctlX += 48;
-        showAButton_.setBounds(ctlX, drawerRowY, 26, ctlH);
-        ctlX += 30;
-        storeBButton_.setBounds(ctlX, drawerRowY, 46, ctlH);
-        ctlX += 48;
-        showBButton_.setBounds(ctlX, drawerRowY, 26, ctlH);
+        // Section 2: Display Scaling
+        drawerSec2X_ = drawerRow.getX();
+        magRangeBox_.setBounds(drawerRow.removeFromLeft(94));
+        drawerRow.removeFromLeft(6);
+        unwrapButton_.setBounds(drawerRow.removeFromLeft(96));
+        drawerRow.removeFromLeft(6);
+        showH2Button_.setBounds(drawerRow.removeFromLeft(72));
 
-        // Section 4: Time Alignment & Help
-        ctlX = 998;
-        delayCompButton_.setBounds(ctlX, drawerRowY, 76, ctlH);
-        ctlX += 80;
-        delayMsLabel_.setBounds(ctlX, drawerRowY, 38, ctlH);
-        ctlX += 40;
-        delayMsSlider_.setBounds(ctlX, drawerRowY, 74, ctlH);
-        ctlX += 78;
-        helpBtn_.setBounds(ctlX, drawerRowY, 26, ctlH);
+        drawerRow.removeFromLeft(22);
+
+        // Section 3: Time Alignment
+        drawerSec3X_ = drawerRow.getX();
+        delayCompButton_.setBounds(drawerRow.removeFromLeft(90));
+        drawerRow.removeFromLeft(6);
+        delayMsLabel_.setBounds(drawerRow.removeFromLeft(58));
+        delayMsSlider_.setBounds(drawerRow.removeFromLeft(108));
     }
 }
 

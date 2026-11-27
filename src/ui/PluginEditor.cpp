@@ -60,8 +60,8 @@ PluginEditor::PluginEditor(plugin::DSPAnalysisProcessor& processor)
     };
 
     setResizable(true, true);
-    setResizeLimits(920, 600, 2400, 1600);
-    setSize(1140, 740);
+    setResizeLimits(1100, 620, 2400, 1600);
+    setSize(1160, 740);
 
     startTimerHz(30);
 }
@@ -106,9 +106,9 @@ void PluginEditor::paint(juce::Graphics& g) {
 
 void PluginEditor::resized() {
     auto area = getLocalBounds();
-    const int barHeight = isAdvancedOpen_ ? 92 : 38;
+    const int barHeight = isAdvancedOpen_ ? 134 : 74;
     controlBar_.setBounds(area.removeFromTop(barHeight));
-    const auto plotArea = area.reduced(4, 4);
+    const auto plotArea = area.reduced(8, 6);
     plot_.setBounds(plotArea);
     dynamicsPlot_.setBounds(plotArea);
     harmonicPlot_.setBounds(plotArea);

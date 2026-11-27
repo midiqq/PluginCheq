@@ -59,13 +59,6 @@ inline const juce::Colour statusOk         {0xff34d399}; // Mint (Delay locked /
 inline const juce::Colour statusSearching  {0xfffbbf24}; // Amber (Searching / Calibrating)
 inline const juce::Colour statusInactive   {0xff64748b}; // Slate (Disabled / Idle)
 
-// Teenage Engineering iconic accents & segmented LED meters
-inline const juce::Colour teOrange         {0xffff5a00}; // Teenage Engineering signature vibrant orange
-inline const juce::Colour meterGreen       {0xff10b981}; // LED emerald green (normal signal)
-inline const juce::Colour meterAmber       {0xfff59e0b}; // LED amber warning (-12 to -3 dB)
-inline const juce::Colour meterRed         {0xffef4444}; // LED red clip (> -0.2 dB)
-inline const juce::Colour meterOff         {0xff191d27}; // Unlit LED segment track
-
 // Floating HUD / Badge card surfaces
 inline const juce::Colour badgeBg          {0xff161a24}; // Badge pill background
 inline const juce::Colour badgeBorder      {0xff282f42}; // Badge perimeter

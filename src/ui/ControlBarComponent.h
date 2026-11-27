@@ -8,12 +8,13 @@
 namespace ui {
 
 /**
- * Teenage Engineering (OP-1 / TX-6) Ultra-Compact Control Bar & Settings Drawer:
- *   - Slim high-density primary bar (~38-40px height)
- *   - Left: TE tactile button strip: [⚡ ALIGN] [A / B] [FREEZE] [RESET] [SMOOTH] [SWAP]
- *   - Center: Compact segmented view tabs: [EQ] | [DYNAMICS] | [THD]
- *   - Right: Segmented LED meters (REF & MEAS), digital delay readout, minimal gear [⚙] button
- *   - Expandable Settings Drawer containing all secondary engine/display/routing parameters
+ * Precision Laboratory Control Bar (Functional Model):
+ *   - Apple-style segmented tabs: [ Linear / EQ ] [ Dynamics ] [ Harmonics / THD ]
+ *   - Brand wordmark & dynamic telemetry badge (Tap Bus / Sidechain / Delay Lock)
+ *   - Primary measurement action buttons (Auto-Align Delay, Freeze, Reset, Advanced, ?)
+ *   - Signal routing, tap channel, swap, smoothing, channel mode, and A/B snapshots
+ *   - Expandable Advanced Drawer with grouped Analysis Engine, Display & Time Alignment options
+ *   - Precision dual peak meters with clip detection
  */
 class ControlBarComponent final : public juce::Component {
 public:
@@ -47,55 +48,53 @@ public:
 
 private:
     void updateViewButtonStates();
-    void updateSmoothButtonState();
 
     plugin::DSPAnalysisProcessor& processor_;
     bool isAdvancedOpen_ = false;
 
-    // --- TE PRIMARY ACTION STRIP (LEFT) ---
-    juce::TextButton alignButton_{juce::CharPointer_UTF8("\xe2\x9a\xa1 ALIGN")};
-    juce::TextButton abButton_{"A / B"};
-    juce::TextButton freezeButton_{"FREEZE"};
-    juce::TextButton resetAvgButton_{"RESET"};
-    juce::TextButton smoothButton_{"SMOOTH"};
-    juce::TextButton swapButton_{"SWAP"};
-
-    int abState_ = 0; // 0 = default, 1 = snap A active, 2 = snap B active, 3 = both
-
-    // --- VIEW SELECTORS (CENTER TABS) ---
-    juce::TextButton viewTransferBtn_{"EQ"};
-    juce::TextButton viewDynamicsBtn_{"DYNAMICS"};
-    juce::TextButton viewHarmonicsBtn_{"THD"};
-    int currentView_ = 0; // 0 = Transfer/EQ, 1 = Dynamics, 2 = Harmonics/THD
+    // --- VIEW SELECTORS (Apple Segmented Tab Capsule) ---
+    juce::TextButton viewTransferBtn_{"Linear / EQ"};
+    juce::TextButton viewDynamicsBtn_{"Dynamics"};
+    juce::TextButton viewHarmonicsBtn_{"Harmonics / THD"};
+    int currentView_ = 0; // 0 = Transfer, 1 = Dynamics, 2 = Harmonics
     juce::Rectangle<int> segmentedCapsuleBounds_;
 
-    // --- RIGHT WIDGETS ---
-    juce::TextButton settingsButton_{juce::CharPointer_UTF8("\xe2\x9a\x99")};
+    // --- ROW 1: Primary Action Buttons ---
+    juce::TextButton findDelayButton_{"Auto-Align Delay"};
+    juce::TextButton freezeButton_{"Freeze"};
+    juce::TextButton resetAvgButton_{"Reset"};
+    juce::TextButton advancedToggleBtn_{"Advanced"};
     juce::TextButton helpBtn_{"?"};
-    juce::Rectangle<int> delayBadgeBounds_;
-    juce::Rectangle<int> metersBounds_;
 
-    // --- ADVANCED SETTINGS DRAWER (SECONDARY CONTROLS) ---
+    // --- ROW 2: Primary Measurement Bar (Routing, Smoothing, Channel, Snapshots) ---
     juce::ComboBox routingBox_;
     juce::ComboBox tapChannelBox_;
+    juce::TextButton swapButton_{"Swap"};
     juce::ComboBox smoothingBox_;
     juce::ComboBox channelBox_;
+    juce::TextButton storeAButton_{"Save A"};
+    juce::ToggleButton showAButton_{"A"};
+    juce::TextButton storeBButton_{"Save B"};
+    juce::ToggleButton showBButton_{"B"};
 
-    juce::TextButton storeAButton_{"Store A"};
-    juce::ToggleButton showAButton_{"Show A"};
-    juce::TextButton storeBButton_{"Store B"};
-    juce::ToggleButton showBButton_{"Show B"};
+    // --- ADVANCED SETTINGS DRAWER ---
+    int drawerSec1X_ = 20;
+    int drawerSec2X_ = 500;
+    int drawerSec3X_ = 802;
 
+    // Section 1: FFT Engine
     juce::ComboBox fftSizeBox_;
     juce::ComboBox windowBox_;
     juce::ComboBox avgModeBox_;
     juce::Slider alphaSlider_;
     juce::Label alphaLabel_{{}, "Alpha:"};
 
+    // Section 2: Display & Traces
     juce::ComboBox magRangeBox_;
     juce::ToggleButton unwrapButton_{"Unwrap Phase"};
     juce::ToggleButton showH2Button_{"Show H2"};
 
+    // Section 3: Time Alignment
     juce::ToggleButton delayCompButton_{"Comp Delay"};
     juce::Slider delayMsSlider_;
     juce::Label delayMsLabel_{{}, "Delay ms:"};
