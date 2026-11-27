@@ -6,11 +6,14 @@
 namespace ui {
 
 /**
- * High-Precision Multi-Panel Transfer Function Graph:
- *   1. Magnitude (dB) [H1 + optional H2 + A/B Snapshots]
- *   2. Phase (degrees, wrapped or unwrapped + A/B Snapshots)
- *   3. Coherence (gamma^2 in [0, 1] + A/B Snapshots)
- * Features Apple dark styling, interactive delta cursor, and zero heap allocations in paint().
+ * Teenage Engineering / Precision Lab Maximized Transfer Function Canvas:
+ *   - 100% full-canvas vertical maximization (no wasted subpanel margins)
+ *   - Magnitude (dB) primary trace (Sky Cyan)
+ *   - Coherence (gamma^2) overlaid directly on the canvas (Fine Amber Gold)
+ *   - Calibrated 0.0 - 1.0 Coherence scale on the right margin inside the grid
+ *   - Symmetrical inner-grid dB and Hz micro-scales without external margin loss
+ *   - Interactive Hover HUD: [ Freq (Hz) | Mag (dB) | Coh (0..1) ] with pinned delta cursor
+ *   - Strictly real-time safe: ZERO dynamic allocations in paint()
  */
 class TransferPlotComponent final : public juce::Component {
 public:
@@ -29,22 +32,18 @@ public:
     void mouseDown(const juce::MouseEvent& event) override;
     void mouseExit(const juce::MouseEvent& event) override;
 
-    // Common measurement graph layout constants across all views
     static constexpr double kMinFreqHz = 20.0;
     static constexpr double kMaxFreqHz = 20000.0;
-    static constexpr float kLeftMargin = 58.0f;
-    static constexpr float kRightMargin = 18.0f;
 
 private:
     float freqToX(double freqHz, float left, float width) const noexcept;
     double xToFreq(float x, float left, float width) const noexcept;
     std::size_t freqToBin(const dsp::TransferFunctionFrame& f, double freqHz) const noexcept;
 
-    void drawFrequencyGrid(juce::Graphics& g, juce::Rectangle<float> area, bool drawLabels) const;
-    void drawMagnitudePanel(juce::Graphics& g, juce::Rectangle<float> area) const;
-    void drawPhasePanel(juce::Graphics& g, juce::Rectangle<float> area) const;
-    void drawCoherencePanel(juce::Graphics& g, juce::Rectangle<float> area) const;
-    void drawCursorReadout(juce::Graphics& g, juce::Rectangle<float> fullPlotArea) const;
+    void drawFrequencyGrid(juce::Graphics& g, juce::Rectangle<float> area) const;
+    void drawMagnitudeScale(juce::Graphics& g, juce::Rectangle<float> area) const;
+    void drawCoherenceScale(juce::Graphics& g, juce::Rectangle<float> area) const;
+    void drawHoverHUD(juce::Graphics& g, juce::Rectangle<float> area) const;
 
     dsp::TransferFunctionFrame frame_;
     dsp::TransferFunctionFrame snapshotA_;
@@ -65,11 +64,13 @@ private:
     double pinnedFreqHz_ = 1000.0;
 
     // Preallocated mutable scratch paths to prevent dynamic heap reallocations in paint()
-    mutable juce::Path scratchPathMain_;
+    mutable juce::Path scratchPathMag_;
+    mutable juce::Path scratchPathCoh_;
+    mutable juce::Path scratchPathCohFill_;
+    mutable juce::Path scratchPathPhase_;
     mutable juce::Path scratchPathH2_;
     mutable juce::Path scratchPathSnapA_;
     mutable juce::Path scratchPathSnapB_;
-    mutable juce::Path scratchPathFill_;
 };
 
 } // namespace ui

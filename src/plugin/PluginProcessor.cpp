@@ -62,8 +62,6 @@ DSPAnalysisProcessor::DSPAnalysisProcessor()
     apvts_.addParameterListener(ParamID::delayCompMs, this);
     apvts_.addParameterListener(ParamID::routingMode, this);
     apvts_.addParameterListener(ParamID::tapChannel, this);
-    apvts_.addParameterListener(ParamID::generatorType, this);
-    apvts_.addParameterListener(ParamID::generatorGainDb, this);
 }
 
 DSPAnalysisProcessor::~DSPAnalysisProcessor() {
@@ -77,8 +75,6 @@ DSPAnalysisProcessor::~DSPAnalysisProcessor() {
     apvts_.removeParameterListener(ParamID::delayCompMs, this);
     apvts_.removeParameterListener(ParamID::routingMode, this);
     apvts_.removeParameterListener(ParamID::tapChannel, this);
-    apvts_.removeParameterListener(ParamID::generatorType, this);
-    apvts_.removeParameterListener(ParamID::generatorGainDb, this);
 
     if (registeredTapChannel_ >= 0) {
         dsp::InterPluginBus::getInstance().unregisterSender(registeredTapChannel_);
@@ -118,7 +114,6 @@ void DSPAnalysisProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
     scratchSidechain_.assign(maxBlock, 0.0);
     tapFloatScratch_.assign(maxBlock, 0.0f);
 
-    generator_.prepare(sampleRate);
     worker_.prepare(sampleRate, maxBlock);
     syncWorkerConfig();
 }
@@ -152,22 +147,6 @@ void DSPAnalysisProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
 
     const int tapCh = static_cast<int>(
         apvts_.getRawParameterValue(ParamID::tapChannel)->load(std::memory_order_relaxed));
-
-    // Internal Signal Generator handling
-    const auto genType = static_cast<dsp::GeneratorType>(
-        static_cast<int>(apvts_.getRawParameterValue(ParamID::generatorType)->load(std::memory_order_relaxed)));
-    const float genGain = apvts_.getRawParameterValue(ParamID::generatorGainDb)->load(std::memory_order_relaxed);
-
-    if (genType != dsp::GeneratorType::Off) {
-        generator_.generate(genType, genGain, tapFloatScratch_.data(), static_cast<std::size_t>(safeSamples));
-        // If generator is active, add it to main input for test excitation
-        for (int ch = 0; ch < mainBus.getNumChannels(); ++ch) {
-            float* dest = mainBus.getWritePointer(ch);
-            for (int i = 0; i < safeSamples; ++i) {
-                dest[i] += tapFloatScratch_[i];
-            }
-        }
-    }
 
     // Extract main processed audio
     float mainPeak = 0.0f;
@@ -221,22 +200,6 @@ void DSPAnalysisProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
                 std::fill_n(scratchSidechain_.data() + read, safeSamples - read, 0.0);
             }
             hasReference = (read > 0);
-        } else {
-            std::fill_n(scratchSidechain_.data(), safeSamples, 0.0);
-        }
-    }
-    // MODE 3: Internal Generator as Reference (Loopback / Standalone self-analysis)
-    else if (routing == dsp::RoutingMode::InternalGenerator) {
-        tapBusActive_.store(false, std::memory_order_relaxed);
-        sidechainActive_.store(false, std::memory_order_relaxed);
-
-        if (genType != dsp::GeneratorType::Off) {
-            for (int i = 0; i < safeSamples; ++i) {
-                const double s = static_cast<double>(tapFloatScratch_[i]);
-                scratchSidechain_[i] = s;
-                refPeak = std::max(refPeak, static_cast<float>(std::abs(s)));
-            }
-            hasReference = true;
         } else {
             std::fill_n(scratchSidechain_.data(), safeSamples, 0.0);
         }

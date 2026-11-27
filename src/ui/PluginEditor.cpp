@@ -104,9 +104,9 @@ void PluginEditor::paint(juce::Graphics& g) {
 
 void PluginEditor::resized() {
     auto area = getLocalBounds();
-    const int barHeight = isAdvancedOpen_ ? 138 : 74;
+    const int barHeight = isAdvancedOpen_ ? 92 : 38;
     controlBar_.setBounds(area.removeFromTop(barHeight));
-    const auto plotArea = area.reduced(8, 6);
+    const auto plotArea = area.reduced(4, 4);
     plot_.setBounds(plotArea);
     dynamicsPlot_.setBounds(plotArea);
     harmonicPlot_.setBounds(plotArea);

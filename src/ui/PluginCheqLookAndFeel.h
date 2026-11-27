@@ -36,9 +36,14 @@ public:
                               bool shouldDrawButtonAsDown) override {
         const auto bounds = button.getLocalBounds().toFloat().reduced(0.5f);
         const bool toggled = button.getToggleState();
+        const bool isOrange = (button.getComponentID() == "TE_ORANGE");
 
         juce::Colour bg = toggled ? Theme::controlActive : Theme::controlSurface;
-        if (!toggled) {
+        if (isOrange) {
+            bg = Theme::teOrange;
+            if (shouldDrawButtonAsDown) bg = bg.darker(0.25f);
+            else if (shouldDrawButtonAsHighlighted) bg = bg.brighter(0.12f);
+        } else if (!toggled) {
             if (shouldDrawButtonAsDown) {
                 bg = Theme::controlHover.darker(0.15f);
             } else if (shouldDrawButtonAsHighlighted) {
@@ -46,11 +51,15 @@ public:
             }
         }
 
-        constexpr float cornerRadius = 5.0f;
+        constexpr float cornerRadius = 4.0f;
         g.setColour(bg);
         g.fillRoundedRectangle(bounds, cornerRadius);
 
-        g.setColour(toggled ? Theme::controlActive : (shouldDrawButtonAsHighlighted ? Theme::borderActive : Theme::borderLightGray));
+        juce::Colour outline = toggled ? Theme::controlActive : (shouldDrawButtonAsHighlighted ? Theme::borderActive : Theme::borderLightGray);
+        if (isOrange) {
+            outline = shouldDrawButtonAsHighlighted ? juce::Colours::white.withAlpha(0.7f) : Theme::teOrange.darker(0.2f);
+        }
+        g.setColour(outline);
         g.drawRoundedRectangle(bounds, cornerRadius, 1.0f);
     }
 
@@ -59,10 +68,11 @@ public:
                         bool,
                         bool) override {
         const bool toggled = button.getToggleState();
-        g.setColour(toggled ? Theme::controlActiveTxt : Theme::textPrimary);
-        g.setFont(juce::FontOptions(12.0f, toggled ? juce::Font::bold : juce::Font::plain));
+        const bool isOrange = (button.getComponentID() == "TE_ORANGE");
+        g.setColour(isOrange ? juce::Colours::white : (toggled ? Theme::controlActiveTxt : Theme::textPrimary));
+        g.setFont(juce::FontOptions(11.0f, (toggled || isOrange) ? juce::Font::bold : juce::Font::plain));
         g.drawFittedText(button.getButtonText(),
-                         button.getLocalBounds().reduced(6, 2),
+                         button.getLocalBounds().reduced(4, 2),
                          juce::Justification::centred, 1);
     }
 

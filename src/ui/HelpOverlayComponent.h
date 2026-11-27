@@ -54,9 +54,9 @@ public:
                     "En tu DAW, rutea la señal previa al procesamiento al bus Sidechain de PluginCheq.\n"
                     "Verás el indicador en verde 'SIDECHAIN: OK'.");
 
-        drawSection("MÉTODO 3: MODO STANDALONE (Sin DAW, calibrando placas o cables)",
-                    "Abre PluginCheq.exe, elige modo 'Internal Generator' y activa Pink Noise o Sweep.\n"
-                    "El plugin generará el estímulo y medirá el retorno de tu placa automáticamente.");
+        drawSection("MÉTODO 3: MODO STANDALONE (Sin DAW, calibrando hardware o conversores)",
+                    "Abre PluginCheq.exe con tu interfaz de audio configurada.\n"
+                    "Envía la señal de referencia al canal de entrada correspondiente y el retorno medido.");
 
         drawSection("LOS 3 BOTONES CLAVE",
                     "• ⚡ Auto-Align Delay: Elimina el retardo de plugins/conversores y aplana la fase.\n"

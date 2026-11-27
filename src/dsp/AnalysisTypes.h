@@ -2,7 +2,6 @@
 
 #include "DelayFinder.h"
 #include "SpectrumSmoothing.h"
-#include "SignalGenerator.h"
 #include "DynamicsEngine.h"
 #include "HarmonicEngine.h"
 
@@ -33,8 +32,7 @@ enum class ChannelMode : int {
 enum class RoutingMode : int {
     SidechainInput = 0,   // Standard DAW sidechain bus (Reaper, Cubase, Studio One)
     PluginTapBus = 1,     // Direct inter-plugin tap (Receiver mode for Ableton Live, FL Studio)
-    TapSender = 2,        // Instance operates as sender tap before FX chain
-    InternalGenerator = 3 // Loopback / self-testing via internal generator (ideal for Standalone)
+    TapSender = 2         // Instance operates as sender tap before FX chain
 };
 
 struct TransferFunctionConfig {

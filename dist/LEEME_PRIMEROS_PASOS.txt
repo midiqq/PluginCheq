@@ -50,4 +50,4 @@ Si usas pantalla con escalado en Windows y ves el plugin borroso:
 ### 3. Usar la versión Standalone (Sin DAW):
 Ejecuta directamente **`PluginCheq.exe`**.
 - Elige tu interfaz de audio o salida de altavoces en `Options -> Audio Settings`.
-- En `Routing Mode`, selecciona **`Internal Generator`** y activa **Pink Noise** o **Sine Sweep** para calibrar sistemas, altavoces, hardware analógico o cables.
+- Configura los canales de entrada para comparar la señal de referencia contra el retorno medido.

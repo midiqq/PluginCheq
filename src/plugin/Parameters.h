@@ -8,8 +8,6 @@ namespace plugin {
 namespace ParamID {
 inline constexpr const char* routingMode      = "routingMode";
 inline constexpr const char* tapChannel       = "tapChannel";
-inline constexpr const char* generatorType    = "generatorType";
-inline constexpr const char* generatorGainDb  = "generatorGainDb";
 inline constexpr const char* swapRefMeas      = "swapRefMeas";
 inline constexpr const char* channelMode      = "channelMode";
 inline constexpr const char* fftSizeIndex     = "fftSizeIndex";
@@ -52,7 +50,7 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout
     params.push_back(std::make_unique<juce::AudioParameterChoice>(
         juce::ParameterID{ParamID::routingMode, 1},
         "Routing Mode",
-        juce::StringArray{"DAW Sidechain", "Plugin Tap Bus (Ableton)", "Tap Sender (Pre-FX)", "Internal Generator"},
+        juce::StringArray{"DAW Sidechain", "Plugin Tap Bus (Ableton)", "Tap Sender (Pre-FX)"},
         1)); // Default to Plugin Tap Bus for seamless Ableton / universal experience
 
     params.push_back(std::make_unique<juce::AudioParameterChoice>(
@@ -60,19 +58,6 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout
         "Tap Bus Channel",
         juce::StringArray{"Bus 1", "Bus 2", "Bus 3", "Bus 4"},
         0));
-
-    // Internal Generator
-    params.push_back(std::make_unique<juce::AudioParameterChoice>(
-        juce::ParameterID{ParamID::generatorType, 1},
-        "Generator",
-        juce::StringArray{"Off", "Pink Noise", "White Noise", "Sine Sweep", "Multitone"},
-        0));
-
-    params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        juce::ParameterID{ParamID::generatorGainDb, 1},
-        "Gen Gain (dB)",
-        juce::NormalisableRange<float>(-48.0f, 0.0f, 0.5f),
-        -18.0f));
 
     // Core Controls
     params.push_back(std::make_unique<juce::AudioParameterBool>(

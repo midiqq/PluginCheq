@@ -5,7 +5,7 @@
 [CmdletBinding()]
 param (
     [string]$Config = "Release",
-    [int]$Jobs = 8
+    [int]$Jobs = 0
 )
 
 $ErrorActionPreference = "Stop"
@@ -18,6 +18,10 @@ if (-not (Test-Path "$RepoRoot\build-vst3\CMakeCache.txt")) {
 }
 
 Write-Host "==> [PluginCheq Build] Compilando VST3 y Tests..." -ForegroundColor Cyan
-cmake --build build-vst3 --config $Config -j $Jobs
+if ($Jobs -gt 1) {
+    cmake --build build-vst3 --config $Config -j $Jobs
+} else {
+    cmake --build build-vst3 --config $Config
+}
 
 Write-Host "==> [PluginCheq Build] Compilación finalizada con éxito." -ForegroundColor Green

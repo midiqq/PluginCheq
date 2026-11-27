@@ -3,7 +3,6 @@
 #include "AnalysisWorker.h"
 #include "Parameters.h"
 #include "dsp/InterPluginBus.h"
-#include "dsp/SignalGenerator.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
@@ -60,7 +59,6 @@ private:
 
     juce::AudioProcessorValueTreeState apvts_;
     AnalysisWorker worker_;
-    dsp::SignalGenerator generator_;
 
     // Pre-allocated scratch buffers for audio callback (zero allocs in processBlock)
     std::vector<double> scratchMain_;
