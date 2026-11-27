@@ -15,9 +15,9 @@ public:
 
     void paint(juce::Graphics& g) override {
         // Dim background
-        g.fillAll(juce::Colours::black.withAlpha(0.65f));
+        g.fillAll(juce::Colours::black.withAlpha(0.70f));
 
-        const auto dialogBounds = getLocalBounds().reduced(80, 50).toFloat();
+        const auto dialogBounds = getLocalBounds().reduced(60, 40).toFloat();
         g.setColour(Theme::panelBg);
         g.fillRoundedRectangle(dialogBounds, 12.0f);
         g.setColour(Theme::borderLightGray);
@@ -27,44 +27,46 @@ public:
 
         // Header
         g.setColour(Theme::textPrimary);
-        g.setFont(juce::FontOptions(20.0f, juce::Font::bold));
-        g.drawText("PluginCheq - Guía Rápida de Enrutamiento y Uso", content.removeFromTop(30).toNearestInt(), juce::Justification::centredLeft);
+        g.setFont(juce::FontOptions(19.0f, juce::Font::bold));
+        g.drawText("Guía Rápida: ¿Cómo conectar y usar PluginCheq?", content.removeFromTop(28).toNearestInt(), juce::Justification::centredLeft);
 
-        g.setColour(Theme::textSecondary);
-        g.setFont(juce::FontOptions(13.0f, juce::Font::plain));
-        content.removeFromTop(10);
+        content.removeFromTop(8);
 
         auto drawSection = [&](const juce::String& title, const juce::String& desc) {
             g.setColour(Theme::traceMagnitude);
-            g.setFont(juce::FontOptions(14.0f, juce::Font::bold));
-            g.drawText(title, content.removeFromTop(20).toNearestInt(), juce::Justification::centredLeft);
+            g.setFont(juce::FontOptions(13.5f, juce::Font::bold));
+            g.drawText(title, content.removeFromTop(18).toNearestInt(), juce::Justification::centredLeft);
 
             g.setColour(Theme::textPrimary);
-            g.setFont(juce::FontOptions(12.5f, juce::Font::plain));
-            g.drawFittedText(desc, content.removeFromTop(50).toNearestInt(), juce::Justification::topLeft, 3);
-            content.removeFromTop(8);
+            g.setFont(juce::FontOptions(12.0f, juce::Font::plain));
+            g.drawFittedText(desc, content.removeFromTop(58).toNearestInt(), juce::Justification::topLeft, 3);
+            content.removeFromTop(6);
         };
 
-        drawSection("1. ENRUTAMIENTO EN ABLETON LIVE (Plugin Tap Bus - Recomendado)",
-                    "Inserta PluginCheq antes de tus plugins en modo 'Tap Sender (Pre-FX)'.\n"
-                    "Inserta una segunda instancia al final en modo 'Plugin Tap Bus' (Receiver).\n"
-                    "¡Listo! La señal limpia viaja internamente sin necesidad de configurar sidechain en el DAW.");
+        drawSection("MÉTODO 1: EN ABLETON LIVE (Usando 2 PluginCheq en la misma pista)",
+                    "1. Pon un PluginCheq AL PRINCIPIO de tu pista en modo: 'Tap Sender (Pre-FX)'.\n"
+                    "2. En medio pon tus plugins de EQ, Compresión, Saturación, etc.\n"
+                    "3. Pon un segundo PluginCheq AL FINAL de la pista en modo: 'Plugin Tap Bus (Ableton)'.\n"
+                    "¡Listo! La señal limpia viaja sola por dentro. Presiona '⚡ Auto-Align Delay' para clavar la fase.");
 
-        drawSection("2. ENRUTAMIENTO ESTÁNDAR POR SIDECHAIN (Reaper, Cubase, Studio One)",
-                    "Modo 'DAW Sidechain': Inserta PluginCheq al final de tu pista o en el Master.\n"
-                    "Envía la señal limpia (pre-FX) a la entrada Sidechain del plugin.");
+        drawSection("MÉTODO 2: SIDECHAIN TRADICIONAL (1 solo PluginCheq al final)",
+                    "Modo 'DAW Sidechain': Inserta un único PluginCheq al final de tu cadena.\n"
+                    "En tu DAW, rutea la señal previa al procesamiento al bus Sidechain de PluginCheq.\n"
+                    "Verás el indicador en verde 'SIDECHAIN: OK'.");
 
-        drawSection("3. VERSIÓN STANDALONE Y PRUEBAS SIN DAW (Internal Generator)",
-                    "Activa 'Internal Generator' (Ruido Rosa, Blanco o Sweep).\n"
-                    "El plugin inyecta el estímulo de prueba directamente para calibrar hardware, cables o probar el analizador.");
+        drawSection("MÉTODO 3: MODO STANDALONE (Sin DAW, calibrando placas o cables)",
+                    "Abre PluginCheq.exe, elige modo 'Internal Generator' y activa Pink Noise o Sweep.\n"
+                    "El plugin generará el estímulo y medirá el retorno de tu placa automáticamente.");
 
-        drawSection("4. BORROSIDAD EN ABLETON LIVE (High-DPI / Pantalla 4K)",
-                    "Si la interfaz se ve borrosa en Windows, haz click derecho sobre la barra superior del plugin en el rack de Ableton y DESMARCA 'Auto-scale plug-in window'. Se verá 100% nítido.");
+        drawSection("LOS 3 BOTONES CLAVE",
+                    "• ⚡ Auto-Align Delay: Elimina el retardo de plugins/conversores y aplana la fase.\n"
+                    "• Smoothing (1/12 Oct): Limpia los piquitos ruidosos y deja la curva suave como un EQ.\n"
+                    "• Save A / Save B: Compara dos curvas o configuraciones distintas superpuestas.");
     }
 
     void resized() override {
-        const auto dialogBounds = getLocalBounds().reduced(80, 50);
-        closeButton_.setBounds(dialogBounds.getRight() - 70, dialogBounds.getY() + 16, 50, 24);
+        const auto dialogBounds = getLocalBounds().reduced(60, 40);
+        closeButton_.setBounds(dialogBounds.getRight() - 76, dialogBounds.getY() + 16, 60, 24);
     }
 
 private:

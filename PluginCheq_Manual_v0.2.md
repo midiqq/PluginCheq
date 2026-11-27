@@ -1,135 +1,125 @@
-# PluginCheq — Manual de Usuario Detallado
-### Versión 0.2 (Fase 1 + 2 Mejorada: Ruteo Inter-Plugin, Generador y Modo Didáctico)
+# GUÍA DE USUARIO: CÓMO FUNCIONA PLUGINCHEQ
 
 ---
 
-## 1. INTRODUCCIÓN
+## 1. LA IDEA FUNDAMENTAL (¿Qué hace y cómo piensa este software?)
 
-**PluginCheq** es un laboratorio de metrología y medición DSP en tiempo real diseñado para insertarse en tu DAW (VST3) o ejecutarse como aplicación independiente (**Standalone**). 
+Imagina que tienes una caja negra (por ejemplo: un ecualizador, un compresor o una cadena de plugins).
 
-Su propósito central es la **Función de Transferencia ($H_1 / H_2$)**: comparar con precisión científica qué alteraciones exactas introduce un procesador, ecualizador, saturador o cadena completa entre dos puntos:
-- **REFERENCE (Señal Limpia / Test):** Punto previo a la cadena de audio.
-- **MEASUREMENT (Señal Procesada):** Punto posterior a la cadena de audio.
+Para saber **exactamente qué le hace esa caja al sonido**, necesitas comparar dos cosas:
+1. **La señal LIMPIA (Reference):** El audio tal como entra a la caja.
+2. **La señal PROCESADA (Measurement):** El audio tal como sale de la caja.
 
-El plugin **no colorea ni altera la señal de paso** (passthrough *bit-accurate*).
+**PluginCheq es el juez:** recibe las dos señales al mismo tiempo, las resta matemáticamente en tiempo real y te dibuja la diferencia exacta:
+- Si el EQ subió +3 dB en 1 kHz, PluginCheq te muestra una curva subiendo +3 dB en 1 kHz.
+- Si el compresor o saturador desfasa o retrasa el audio, PluginCheq te muestra los grados de fase y los milisegundos exactos de retardo.
 
----
-
-## 2. PROBLEMA Y SOLUCIÓN DE ESCALADO BORROSO EN ABLETON LIVE
-
-### ¿Por qué se ve borroso en Ableton Live en Windows?
-Ableton Live en Windows aplica por defecto una función llamada **"Auto-scale plug-in window"** en pantallas con escalado DPI (125%, 150%, 4K). Esta función fuerza a Windows a estirar la ventana del plugin como si fuera un bitmap estático, generando texto borroso y líneas difusas.
-
-### Cómo solucionarlo en 5 segundos (100% Nítido):
-1. En Ableton Live, haz **click derecho sobre la barra de título del plugin** (en la barra superior del dispositivo en la vista de pista de Ableton, no dentro de la ventana del plugin).
-2. Desmarca la opción **"Auto-scale plug-in window"** (Auto-escalar ventana de plug-in).
-3. Cierra y vuelve a abrir la ventana del plugin: **ahora se verá con nitidez vectorial perfecta a resolución nativa**.
+> **Regla de oro:** PluginCheq **NUNCA** modifica el audio. El audio lo atraviesa intacto. Su único trabajo es escuchar y medir.
 
 ---
 
-## 3. ASIGNACIÓN Y ENRUTAMIENTO DE SEÑALES (REF vs MEAS)
+## 2. DÓNDE SE PONEN LOS PLUGINS (Los 2 métodos de conexión)
 
-Dado que DAWs como Ableton Live carecen de un menú nativo de Sidechain directo y flexible como Reaper, PluginCheq incorpora **4 MODOS DE ENRUTAMIENTO SELECCIONABLES DESDE EL PROPIO VST**:
+Hay dos maneras de usar PluginCheq según cómo te guste trabajar en tu DAW:
 
-En la esquina superior izquierda encontrarás el menú desplegable **Routing Mode**:
+---
 
+### MÉTODO 1: El método de las 2 instancias (Recomendado para Ableton Live y FL Studio)
+*No requiere configurar ruteos de sidechain extraños en el DAW.*
+
+Pones **DOS** PluginCheq en la misma pista: uno **antes** de tus plugins y otro **después**.
+
+```text
+ TU PISTA EN ABLETON:
+ ─────────────────────────────────────────────────────────────────────────
+ [ 1. PluginCheq ]  ──►  [ Tus Plugins: EQ, Comp, Saturador ]  ──►  [ 2. PluginCheq ]
+   (EMISOR / TAP)                                                     (ANALIZADOR)
+ ─────────────────────────────────────────────────────────────────────────
+        │                                                                   ▲
+        │═════════════════ Cable invisible por dentro ══════════════════════│
+                 (Envía la señal limpia automáticamente)
 ```
-[ Routing Mode: ▼ ]
-  ├─ 1. Plugin Tap Bus (Ableton)  <-- (Recomendado para Ableton Live y FL Studio)
-  ├─ 2. Tap Sender (Pre-FX)       <-- (Instancia previa para capturar señal limpia)
-  ├─ 3. DAW Sidechain             <-- (Para Reaper, Cubase, Studio One)
-  └─ 4. Internal Generator        <-- (Para Standalone o pruebas autónomas)
+
+#### Paso a paso exacto:
+1. En tu pista, inserta el primer **PluginCheq**.
+   - En la esquina superior izquierda pon: **`Routing Mode: Tap Sender (Pre-FX)`**.
+   - Verás que dice en azul: `SENDING TAP...`.
+   - *Este plugin solo captura el audio limpio antes de que entre a tus efectos.*
+2. En medio, pon todos los plugins que quieras probar (FabFilter Pro-Q, un compresor, etc.).
+3. Al final de la pista, inserta el segundo **PluginCheq**.
+   - En la esquina superior izquierda pon: **`Routing Mode: Plugin Tap Bus (Ableton)`**.
+   - Verás que el indicador cambia a verde: **`TAP BUS: LOCKED`**.
+4. ¡Listo! Abre la ventana del segundo PluginCheq:
+   - Verás que el vúmetro **`REF (Clean)`** se mueve con la señal limpia.
+   - Verás que el vúmetro **`MEAS (Proc)`** se mueve con la señal procesada.
+   - En el gráfico verás inmediatamente la curva exacta que están aplicando tus plugins.
+
+---
+
+### MÉTODO 2: El método de 1 sola instancia con Sidechain tradicional (Reaper, Cubase, Studio One, o Ableton con envíos)
+
+Usas **UN SOLO** PluginCheq colocado al final de la cadena.
+
+```text
+ PISTA ORIGINAL ────────────────────────► Envío al Sidechain de PluginCheq (REF)
+        │
+        ▼
+ [ Tus Plugins: EQ, Comp ]
+        │
+        ▼
+ PISTA PROCESADA ───────────────────────► Entrada Principal de PluginCheq (MEAS)
 ```
 
-### Método A: "Plugin Tap Bus" (El flujo ideal para Ableton Live)
-Este método permite comunicar dos instancias de PluginCheq en tiempo real mediante memoria compartida *lock-free*, resolviendo por completo las limitaciones de ruteo de Ableton.
-
-1. **Paso 1 (Captura Pre-FX):** Inserta una instancia de PluginCheq al principio de la pista (o antes de la cadena de plugins a medir). Configúralo en:
-   - `Routing Mode:` **Tap Sender (Pre-FX)**
-   - `Tap Bus Channel:` **Bus 1**
-   *(El indicador mostrará `SENDING TAP...`. Esta instancia no consume CPU de análisis; simplemente retransmite la señal limpia).*
-2. **Paso 2 (Analizador Post-FX):** Inserta otra instancia de PluginCheq al final de la cadena de efectos (o en el Master). Configúralo en:
-   - `Routing Mode:` **Plugin Tap Bus (Ableton)**
-   - `Tap Bus Channel:` **Bus 1**
-3. **Resultado:** El analizador mostrará en verde **`TAP BUS: LOCKED`**. 
-   - `REF (Clean)` recibe la señal anterior a los plugins.
-   - `MEAS (Proc)` recibe la señal posterior tras pasar por la cadena.
-   - El botón **`⇄ Swap`** te permite invertir quién es Ref y quién es Meas si fuera necesario.
+#### Paso a paso:
+1. Pon PluginCheq al final de la pista o en el Master.
+2. En el plugin, pon: **`Routing Mode: DAW Sidechain`**.
+3. En tu DAW, envía la señal de la pista antes de procesar hacia la entrada Sidechain de PluginCheq.
+4. El indicador mostrará **`SIDECHAIN: OK`** en verde.
 
 ---
 
-### Método B: "DAW Sidechain" (Para Reaper, Cubase, Studio One)
-Para DAWs que permiten enviar canales 3/4 o envíos auxiliares directos al Sidechain del plugin:
-1. En PluginCheq selecciona `Routing Mode:` **DAW Sidechain**.
-2. Envía la señal pre-procesamiento al bus Sidechain del plugin.
-3. El indicador mostrará **`SIDECHAIN: OK`** en verde.
+### MÉTODO 3: Modo Autónomo / Standalone (Sin DAW, calibrando hardware o cables)
+
+Si abres **`PluginCheq.exe`** directamente en Windows sin abrir ningún DAW:
+1. En el menú superior de la ventana configuras tu interfaz de audio (ej: Focusrite, Universal Audio).
+2. En PluginCheq seleccionas: **`Routing Mode: Internal Generator`**.
+3. En el selector **`Generator`**, eliges **Pink Noise** o **Sine Sweep**.
+4. El plugin genera el sonido de prueba internamente y lo usa como Referencia para medir cualquier equipo analógico conectado a las entradas/salidas de tu interfaz.
 
 ---
 
-### Método C: "Internal Generator" (Para Standalone o pruebas con hardware)
-Si estás usando la versión **Standalone** o deseas calibrar una interfaz, cable de audio o procesador externo:
-1. En PluginCheq selecciona `Routing Mode:` **Internal Generator**.
-2. En la barra de controles selecciona el estímulo en el combo `Generator`:
-   - **Pink Noise:** Ruido rosa calibrado (−3 dB/octava), ideal para transferencia de sistemas acústicos y altavoces.
-   - **White Noise:** Energía plana por hercio, ideal para filtros digitales y EQs rápidos.
-   - **Sine Sweep:** Barrido senoidal logarítmico continuo de 20 Hz a 20 kHz.
-   - **Multitone:** 31 frecuencias estándar ISO en 1/3 de octava con fases descorrelacionadas.
-3. Ajusta el nivel con el control `Gen Gain (dB)` (por defecto a −18 dBFS).
+## 3. CÓMO SE USA EN EL DÍA A DÍA (3 Botones mágicos)
+
+Una vez que el audio está corriendo y los dos vúmetros (`REF` y `MEAS`) se mueven:
+
+1. **`⚡ Auto-Align Delay` (El botón más importante):**
+   Los plugins digitales y los convertidores agregan pequeñas muestras o milisegundos de latencia. Esa latencia hace que la curva de fase salga inclinada.  
+   👉 **Haces click en `⚡ Auto-Align Delay`:** PluginCheq calcula el retardo exacto y lo compensa. La curva de fase se aplana inmediatamente a 0° y la medición queda perfecta.
+2. **`Smoothing` (Suavizado):**
+   Si la curva de EQ se ve muy ruidosa o con demasiados piquitos por la música real, cambia el selector `Smoothing` a **1/12 Oct** o **1/3 Oct**. La curva se volverá suave y clara como la pantalla de un ecualizador comercial.
+3. **`Save A` y `Save B` (Comparar configuraciones):**
+   - Ajustas tu compresor con ataque rápido → click en **`Save A`** (se congela una curva gris).
+   - Ahora cambias el compresor a ataque lento → click en **`Save B`** (se dibuja una curva naranja).
+   - Puedes ver las dos curvas superpuestas para comparar exactamente qué cambió.
 
 ---
 
-## 4. GUÍA DIDÁCTICA DE LA INTERFAZ DE USUARIO
+## 4. QUÉ SIGNIFICA CADA GRÁFICO (Lectura fácil)
 
-La interfaz de PluginCheq está organizada en dos niveles de profundidad para ofrecer una experiencia limpia y didáctica sin sacrificar el poder analítico profesional:
+Los tres paneles van de 20 Hz (graves) a 20 kHz (agudos):
 
-### Nivel 1: Barra Principal Didáctica
-- **`⚡ Auto-Align Delay`:** Al hacer click, el algoritmo *GCC-PHAT* calcula el retardo en milisegundos y muestras entre la señal limpia y la procesada, y aplica la compensación de fase automáticamente. La curva de fase se aplanará instantáneamente eliminando la pendiente de retardo.
-- **`Freeze`:** Congela el análisis en pantalla para inspeccionar curvas sin que cambien con la música.
-- **`Reset`:** Reinicia los acumuladores espectrales para comenzar una nueva medición promediada limpia.
-- **`Smoothing (Suavizado):`** Permite elegir entre lectura cruda (*Off*) o suavizado fraccional de octava (*1/12 Oct*, *1/3 Oct*, etc.) para lectura rápida de curvas de EQ.
-- **`Save A / Save B`:** Guarda instantáneas comparativas de dos estados o procesadores distintos (Curva A en gris claro, Curva B en naranja).
-- **`⚙ Advanced`:** Abre o cierra el cajón inferior de configuración matemática avanzada.
-- **`? (Ayuda)`:** Despliega una tarjeta flotante de ayuda rápida en pantalla.
+### 1. Panel de Arriba: MAGNITUDE (dB)
+Es la respuesta en frecuencia.
+- **En la línea de 0 dB:** El procesador no altera el volumen en esa frecuencia.
+- **Curva arriba de 0 dB (+dB):** El procesador está subiendo volumen (boost).
+- **Curva abajo de 0 dB (-dB):** El procesador está cortando volumen (cut / filtro).
 
----
+### 2. Panel del Medio: PHASE (Grados)
+Muestra si el procesador cambia la fase o la alineación en el tiempo.
+- Una línea horizontal en 0° (después de apretar *Auto-Align Delay*) significa fase perfecta.
+- Giros o curvas pronunciadas muestran los desfases que introducen los filtros analógicos o emulaciones vintage.
 
-### Nivel 2: Cajón de Ajustes Avanzados (Advanced Drawer)
-Al activar **`⚙ Advanced`**, se despliegan los controles de metrología profunda:
-- **`FFT Size:`** Desde 1024 (muy rápido, ideal para transitorios y agudos) hasta 16384 (resolución milimétrica en frecuencias sub-graves de 20 a 100 Hz).
-- **`Window:`** Ventana espectral (*Blackman-Harris* con −92 dB de rechazo de lóbulos para máxima precisión, *Hann*, o *Rectangular*).
-- **`Averaging Mode & Alpha:`** Modo Exponencial (ajuste continuo con factor Alpha de velocidad) o Lineal (promedio exacto de $N$ tramas).
-- **`Unwrap Phase:`** Desenrolla la fase eliminando los saltos visuales de ±180° para ver el retardo de grupo continuo.
-- **`Show H2:`** Superpone el estimador $H_2$ en amarillo. Donde $H_1$ y $H_2$ se separan, existe ruido no correlacionado en la cadena.
-- **`Manual Delay Comp (ms):`** Slider para micro-ajustar el retardo de análisis en milisegundos.
-
----
-
-## 5. INTERPRETACIÓN DE LOS GRÁFICOS
-
-Los 3 paneles comparten el mismo eje horizontal de frecuencia logarítmico (20 Hz a 20 kHz):
-
-1. **MAGNITUDE (H1) [dB]:**
-   - **Línea en 0 dB:** No hay cambio de amplitud entre entrada y salida.
-   - **Por encima de 0 dB:** El procesador está amplificando esas frecuencias (boost).
-   - **Por debajo de 0 dB:** El procesador está atenuando esas frecuencias (corte o filtro).
-2. **PHASE [Grados]:**
-   - Indica el desplazamiento temporal relativo por frecuencia.
-   - Una línea horizontal plana en 0° (tras presionar *Auto-Align Delay*) indica un sistema de fase lineal.
-   - Rotaciones o pendientes residuales revelan la distorsión de fase propia de filtros IIR, ecualizadores analógicos o inductores.
-3. **COHERENCE ($\gamma^2$) [0.0 a 1.0]:**
-   - **1.0 (Verde sólido):** La relación entre la señal limpia y la procesada es 100% lineal y matemáticamente perfecta. La medición es totalmente confiable.
-   - **Menor a 0.7:** Presencia de ruido, saturación/distorsión no lineal, o falta de energía en esa banda.
-
-### Cursor Interactivo y Delta Cursor
-- **Mover el ratón:** Muestra en tiempo real la frecuencia exacta, ganancia en dB, fase y coherencia en ese punto.
-- **Click izquierdo:** Clava un cursor de referencia fijo. Al mover el ratón ahora verás la diferencia delta exacta ($\Delta \text{ dB}, \Delta^\circ$) respecto a la frecuencia fijada.
-- **Click derecho:** Quita el cursor fijo.
-
----
-
-## 6. UBICACIÓN DE ARCHIVOS GENERADOS
-
-- **Plugin VST3 (Windows x64):**
-  `C:\Users\tomas\.gemini\antigravity\scratch\dsp-analysis-toolkit\build-vst3\PluginCheq_artefacts\Release\VST3\PluginCheq.vst3`
-- **Ejecutable Standalone:**
-  `C:\Users\tomas\.gemini\antigravity\scratch\dsp-analysis-toolkit\build-vst3\PluginCheq_artefacts\Release\Standalone\PluginCheq.exe`
+### 3. Panel de Abajo: COHERENCE (0 a 1)
+Es el "semáforo de verdad" de la medición.
+- **Cerca de 1.0 (Verde alto):** La medición es 100% matemática, lineal y confiable. Lo que ves en el gráfico es la verdad absoluta.
+- **Por debajo de 0.5 (Cae a cero):** En esa zona hay mucho ruido de fondo, saturación no lineal, o la canción no tiene instrumentos tocando en esa frecuencia en ese instante.
