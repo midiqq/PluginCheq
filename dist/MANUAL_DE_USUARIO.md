@@ -1,125 +1,60 @@
-# GUÍA DE USUARIO: CÓMO FUNCIONA PLUGINCHEQ
+# MANUAL DE USUARIO — PLUGINCHEQ
+
+**PluginCheq** es un laboratorio de medición y caracterización DSP en tiempo real para DAWs (formato VST3 en Windows), diseñado con precisión metrológica y una estética minimalista profesional.
 
 ---
 
-## 1. LA IDEA FUNDAMENTAL (¿Qué hace y cómo piensa este software?)
+## 1. ¿Qué es y qué mide PluginCheq?
+PluginCheq compara en tiempo real la señal que entra a tus plugins (**Reference**) contra la señal que sale de ellos (**Measurement**).
 
-Imagina que tienes una caja negra (por ejemplo: un ecualizador, un compresor o una cadena de plugins).
+El plugin cuenta con tres modos de análisis accesibles desde los botones de la barra superior:
 
-Para saber **exactamente qué le hace esa caja al sonido**, necesitas comparar dos cosas:
-1. **La señal LIMPIA (Reference):** El audio tal como entra a la caja.
-2. **La señal PROCESADA (Measurement):** El audio tal como sale de la caja.
+### 1.1 Pestaña `Linear / EQ` (Función de Transferencia)
+- **Magnitud (dB):** Muestra la curva de ecualización o balance tonal exacta que aplican tus plugins entre 20 Hz y 20 kHz.
+- **Fase (Grados):** Muestra el desplazamiento de fase introducido por filtros y convertidores. Puede visualizarse envuelta (Wrapped: $\pm 180^\circ$) o desenrollada (Unwrapped).
+- **Coherencia ($\gamma^2$ de 0 a 1):** Mide la linealidad y calidad de la medición. Un valor cercano a 1.0 indica que el audio de salida proviene fielmente de la entrada; caídas de coherencia señalan ruido, compresión agresiva o falta de señal.
 
-**PluginCheq es el juez:** recibe las dos señales al mismo tiempo, las resta matemáticamente en tiempo real y te dibuja la diferencia exacta:
-- Si el EQ subió +3 dB en 1 kHz, PluginCheq te muestra una curva subiendo +3 dB en 1 kHz.
-- Si el compresor o saturador desfasa o retrasa el audio, PluginCheq te muestra los grados de fase y los milisegundos exactos de retardo.
+### 1.2 Pestaña `Dynamics` (Curva de Transferencia Dinámica)
+- Grafica el nivel de entrada (dBFS) versus nivel de salida (dBFS).
+- Muestra una línea guía de ganancia unitaria 1:1 y resalta en sombreado la zona de compresión.
+- Detecta y muestra automáticamente en badges el umbral estimado (**Threshold**) y la relación de compresión (**Ratio**).
 
-> **Regla de oro:** PluginCheq **NUNCA** modifica el audio. El audio lo atraviesa intacto. Su único trabajo es escuchar y medir.
-
----
-
-## 2. DÓNDE SE PONEN LOS PLUGINS (Los 2 métodos de conexión)
-
-Hay dos maneras de usar PluginCheq según cómo te guste trabajar en tu DAW:
-
----
-
-### MÉTODO 1: El método de las 2 instancias (Recomendado para Ableton Live y FL Studio)
-*No requiere configurar ruteos de sidechain extraños en el DAW.*
-
-Pones **DOS** PluginCheq en la misma pista: uno **antes** de tus plugins y otro **después**.
-
-```text
- TU PISTA EN ABLETON:
- ─────────────────────────────────────────────────────────────────────────
- [ 1. PluginCheq ]  ──►  [ Tus Plugins: EQ, Comp, Saturador ]  ──►  [ 2. PluginCheq ]
-   (EMISOR / TAP)                                                     (ANALIZADOR)
- ─────────────────────────────────────────────────────────────────────────
-        │                                                                   ▲
-        │═════════════════ Cable invisible por dentro ══════════════════════│
-                 (Envía la señal limpia automáticamente)
-```
-
-#### Paso a paso exacto:
-1. En tu pista, inserta el primer **PluginCheq**.
-   - En la esquina superior izquierda pon: **`Routing Mode: Tap Sender (Pre-FX)`**.
-   - Verás que dice en azul: `SENDING TAP...`.
-   - *Este plugin solo captura el audio limpio antes de que entre a tus efectos.*
-2. En medio, pon todos los plugins que quieras probar (FabFilter Pro-Q, un compresor, etc.).
-3. Al final de la pista, inserta el segundo **PluginCheq**.
-   - En la esquina superior izquierda pon: **`Routing Mode: Plugin Tap Bus (Ableton)`**.
-   - Verás que el indicador cambia a verde: **`TAP BUS: LOCKED`**.
-4. ¡Listo! Abre la ventana del segundo PluginCheq:
-   - Verás que el vúmetro **`REF (Clean)`** se mueve con la señal limpia.
-   - Verás que el vúmetro **`MEAS (Proc)`** se mueve con la señal procesada.
-   - En el gráfico verás inmediatamente la curva exacta que están aplicando tus plugins.
+### 1.3 Pestaña `Harmonics / THD` (Distorsión Armónica)
+- Analizador espectral de altísima resolución con piso dinámico hasta -140 dBFS.
+- Localiza automáticamente la frecuencia fundamental del tono de entrada.
+- Identifica y etiqueta los armónicos del 2° al 8° orden (H2 a H8), mostrando su nivel relativo en dBc.
+- Calcula en tiempo real la distorsión armónica total (**THD %** y **THD dB**) y la distorsión más ruido (**THD+N**).
 
 ---
 
-### MÉTODO 2: El método de 1 sola instancia con Sidechain tradicional (Reaper, Cubase, Studio One, o Ableton con envíos)
+## 2. Métodos de Conexión en tu DAW
 
-Usas **UN SOLO** PluginCheq colocado al final de la cadena.
+### Método A: Doble Instancia con Bus Interno (Para Ableton Live y FL Studio)
+1. Inserta un PluginCheq antes de los plugins a medir y configúralo en:  
+   `Routing Mode: Tap Sender (Pre-FX)`.
+2. Inserta un segundo PluginCheq después de los plugins a medir y configúralo en:  
+   `Routing Mode: Plugin Tap Bus (Ableton)`.
+3. Ambos plugins se sincronizan automáticamente por memoria compartida sin necesidad de configurar envíos en el DAW.
 
-```text
- PISTA ORIGINAL ────────────────────────► Envío al Sidechain de PluginCheq (REF)
-        │
-        ▼
- [ Tus Plugins: EQ, Comp ]
-        │
-        ▼
- PISTA PROCESADA ───────────────────────► Entrada Principal de PluginCheq (MEAS)
-```
-
-#### Paso a paso:
-1. Pon PluginCheq al final de la pista o en el Master.
-2. En el plugin, pon: **`Routing Mode: DAW Sidechain`**.
-3. En tu DAW, envía la señal de la pista antes de procesar hacia la entrada Sidechain de PluginCheq.
-4. El indicador mostrará **`SIDECHAIN: OK`** en verde.
+### Método B: Instancia Única con Sidechain (Reaper, Cubase, Studio One)
+1. Inserta un único PluginCheq al final de tu cadena.
+2. Envía la señal pre-efectos al canal de Sidechain de PluginCheq.
+3. Configura `Routing Mode: DAW Sidechain`.
 
 ---
 
-### MÉTODO 3: Modo Autónomo / Standalone (Sin DAW, calibrando hardware o cables)
+## 3. Controles Principales
 
-Si abres **`PluginCheq.exe`** directamente en Windows sin abrir ningún DAW:
-1. En el menú superior de la ventana configuras tu interfaz de audio (ej: Focusrite, Universal Audio).
-2. En PluginCheq seleccionas: **`Routing Mode: Internal Generator`**.
-3. En el selector **`Generator`**, eliges **Pink Noise** o **Sine Sweep**.
-4. El plugin genera el sonido de prueba internamente y lo usa como Referencia para medir cualquier equipo analógico conectado a las entradas/salidas de tu interfaz.
-
----
-
-## 3. CÓMO SE USA EN EL DÍA A DÍA (3 Botones mágicos)
-
-Una vez que el audio está corriendo y los dos vúmetros (`REF` y `MEAS`) se mueven:
-
-1. **`⚡ Auto-Align Delay` (El botón más importante):**
-   Los plugins digitales y los convertidores agregan pequeñas muestras o milisegundos de latencia. Esa latencia hace que la curva de fase salga inclinada.  
-   👉 **Haces click en `⚡ Auto-Align Delay`:** PluginCheq calcula el retardo exacto y lo compensa. La curva de fase se aplana inmediatamente a 0° y la medición queda perfecta.
-2. **`Smoothing` (Suavizado):**
-   Si la curva de EQ se ve muy ruidosa o con demasiados piquitos por la música real, cambia el selector `Smoothing` a **1/12 Oct** o **1/3 Oct**. La curva se volverá suave y clara como la pantalla de un ecualizador comercial.
-3. **`Save A` y `Save B` (Comparar configuraciones):**
-   - Ajustas tu compresor con ataque rápido → click en **`Save A`** (se congela una curva gris).
-   - Ahora cambias el compresor a ataque lento → click en **`Save B`** (se dibuja una curva naranja).
-   - Puedes ver las dos curvas superpuestas para comparar exactamente qué cambió.
+- **`⚡ Auto-Align Delay`:** Detecta y compensa automáticamente la latencia introducida por tus plugins en fracciones de muestra, aplanando la curva de fase.
+- **`Smoothing`:** Suavizado fraccional de octava (Off, 1/24, 1/12, 1/6, 1/3, 1/1 Oct) para obtener curvas legibles incluso con música compleja.
+- **`Averaging (α)`:** Controla la velocidad de refresco del análisis espectral (Fast, Medium, Slow, Stable).
+- **`Snapshots (A / B)`:** Permite congelar una curva de medición y contrastarla inmediatamente contra otra configuración.
+- **`Swap`:** Invierte las entradas de Referencia y Medición en caso de haber ruteado los canales en orden inverso.
+- **`Advanced`:** Despliega el cajón con controles de escala, rango dinámico (-12 a +24 dB), tipo de ventana espectral y canal analizado (L, R, Mid).
 
 ---
 
-## 4. QUÉ SIGNIFICA CADA GRÁFICO (Lectura fácil)
-
-Los tres paneles van de 20 Hz (graves) a 20 kHz (agudos):
-
-### 1. Panel de Arriba: MAGNITUDE (dB)
-Es la respuesta en frecuencia.
-- **En la línea de 0 dB:** El procesador no altera el volumen en esa frecuencia.
-- **Curva arriba de 0 dB (+dB):** El procesador está subiendo volumen (boost).
-- **Curva abajo de 0 dB (-dB):** El procesador está cortando volumen (cut / filtro).
-
-### 2. Panel del Medio: PHASE (Grados)
-Muestra si el procesador cambia la fase o la alineación en el tiempo.
-- Una línea horizontal en 0° (después de apretar *Auto-Align Delay*) significa fase perfecta.
-- Giros o curvas pronunciadas muestran los desfases que introducen los filtros analógicos o emulaciones vintage.
-
-### 3. Panel de Abajo: COHERENCE (0 a 1)
-Es el "semáforo de verdad" de la medición.
-- **Cerca de 1.0 (Verde alto):** La medición es 100% matemática, lineal y confiable. Lo que ves en el gráfico es la verdad absoluta.
-- **Por debajo de 0.5 (Cae a cero):** En esa zona hay mucho ruido de fondo, saturación no lineal, o la canción no tiene instrumentos tocando en esa frecuencia en ese instante.
+## 4. Nitidez en Pantallas HiDPI (Ableton Live)
+Si la ventana del plugin se ve ligeramente difusa:
+1. Haz click derecho sobre la barra superior de PluginCheq en la cadena de Ableton.
+2. **Desmarca "Auto-scale plug-in window"** para disfrutar de gráficos vectoriales nítidos a resolución nativa.
