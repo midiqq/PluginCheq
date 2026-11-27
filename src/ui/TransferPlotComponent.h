@@ -6,11 +6,11 @@
 namespace ui {
 
 /**
- * Renders the 3 synchronized Transfer Function graphs:
+ * High-Precision Multi-Panel Transfer Function Graph:
  *   1. Magnitude (dB) [H1 + optional H2 + A/B Snapshots]
  *   2. Phase (degrees, wrapped or unwrapped + A/B Snapshots)
  *   3. Coherence (gamma^2 in [0, 1] + A/B Snapshots)
- * Supports interactive hover cursor + click-to-pin delta cursor.
+ * Features Apple dark styling, interactive delta cursor, and zero heap allocations in paint().
  */
 class TransferPlotComponent final : public juce::Component {
 public:
@@ -28,6 +28,12 @@ public:
     void mouseMove(const juce::MouseEvent& event) override;
     void mouseDown(const juce::MouseEvent& event) override;
     void mouseExit(const juce::MouseEvent& event) override;
+
+    // Common measurement graph layout constants across all views
+    static constexpr double kMinFreqHz = 20.0;
+    static constexpr double kMaxFreqHz = 20000.0;
+    static constexpr float kLeftMargin = 58.0f;
+    static constexpr float kRightMargin = 18.0f;
 
 private:
     float freqToX(double freqHz, float left, float width) const noexcept;
@@ -58,10 +64,12 @@ private:
     bool hasPinnedCursor_ = false;
     double pinnedFreqHz_ = 1000.0;
 
-    static constexpr double kMinFreqHz = 20.0;
-    static constexpr double kMaxFreqHz = 20000.0;
-    static constexpr float kLeftMargin = 54.0f;
-    static constexpr float kRightMargin = 16.0f;
+    // Preallocated mutable scratch paths to prevent dynamic heap reallocations in paint()
+    mutable juce::Path scratchPathMain_;
+    mutable juce::Path scratchPathH2_;
+    mutable juce::Path scratchPathSnapA_;
+    mutable juce::Path scratchPathSnapB_;
+    mutable juce::Path scratchPathFill_;
 };
 
 } // namespace ui

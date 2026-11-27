@@ -130,8 +130,8 @@ void TransferPlotComponent::drawFrequencyGrid(juce::Graphics& g,
                 ? juce::String(static_cast<int>(f / 1000.0)) + "k"
                 : juce::String(static_cast<int>(f));
             g.setColour(Theme::textSecondary);
-            g.setFont(11.0f);
-            g.drawText(label, static_cast<int>(x - 18.0f), static_cast<int>(area.getBottom() + 2.0f),
+            g.setFont(juce::FontOptions(11.0f, juce::Font::plain));
+            g.drawText(label, static_cast<int>(x - 18.0f), static_cast<int>(area.getBottom() + 4.0f),
                        36, 14, juce::Justification::centred, false);
         }
     }
@@ -139,33 +139,63 @@ void TransferPlotComponent::drawFrequencyGrid(juce::Graphics& g,
 
 void TransferPlotComponent::drawMagnitudePanel(juce::Graphics& g, juce::Rectangle<float> area) const {
     g.setColour(Theme::panelBg);
-    g.fillRoundedRectangle(area, 8.0f);
+    g.fillRoundedRectangle(area, 6.0f);
     drawFrequencyGrid(g, area, false);
 
     const float minDb = -magRangeDb_;
     const float maxDb = magRangeDb_;
     const float stepDb = (magRangeDb_ <= 12.0f) ? 3.0f : (magRangeDb_ <= 24.0f ? 6.0f : 12.0f);
 
-    g.setFont(11.0f);
+    g.setFont(juce::FontOptions(10.5f, juce::Font::plain));
     for (float db = minDb; db <= maxDb + 0.01f; db += stepDb) {
         const float normY = (maxDb - db) / (maxDb - minDb);
         const float y = area.getY() + normY * area.getHeight();
         g.setColour(std::abs(db) < 0.01f ? Theme::zeroLine : Theme::gridMajor);
         g.drawHorizontalLine(static_cast<int>(y), area.getX(), area.getRight());
 
-        g.setColour(Theme::textSecondary);
-        g.drawText(juce::String(db, 0) + " dB",
-                   4, static_cast<int>(y - 7.0f), static_cast<int>(kLeftMargin - 10.0f), 14,
-                   juce::Justification::centredRight, false);
+        // Draw labels with safe insets to avoid colliding with adjacent panels
+        if (db > minDb + 0.1f) {
+            float labelY = y - 7.0f;
+            if (std::abs(db - maxDb) < 0.1f) labelY = area.getY() + 2.0f;
+
+            g.setColour(std::abs(db) < 0.01f ? Theme::textPrimary : Theme::textSecondary);
+            g.drawText(juce::String(db, 0) + " dB",
+                       2, static_cast<int>(labelY), static_cast<int>(kLeftMargin - 8.0f), 14,
+                       juce::Justification::centredRight, false);
+        }
     }
 
-    g.setColour(Theme::textPrimary);
-    g.setFont(12.0f);
-    g.drawText("MAGNITUDE (H1)", static_cast<int>(area.getX() + 10), static_cast<int>(area.getY() + 6),
-               140, 16, juce::Justification::centredLeft, false);
+    // Top-left Apple-style pill badge & legend
+    const float badgeX = area.getX() + 8.0f;
+    const float badgeY = area.getY() + 6.0f;
+    g.setColour(Theme::badgeBg);
+    g.fillRoundedRectangle(badgeX, badgeY, 110.0f, 18.0f, 4.0f);
+    g.setColour(Theme::badgeBorder);
+    g.drawRoundedRectangle(badgeX, badgeY, 110.0f, 18.0f, 4.0f, 1.0f);
 
-    auto buildMagPath = [&](const dsp::TransferFunctionFrame& f, const std::vector<double>& dbValues) {
-        juce::Path p;
+    g.setColour(Theme::textPrimary);
+    g.setFont(juce::FontOptions(10.5f, juce::Font::bold));
+    g.drawText("MAGNITUDE (dB)", static_cast<int>(badgeX), static_cast<int>(badgeY), 110, 18, juce::Justification::centred, false);
+
+    // Legend items
+    float legX = badgeX + 118.0f;
+    auto drawLegendDot = [&](juce::Colour col, const char* name) {
+        g.setColour(col);
+        g.fillEllipse(legX, badgeY + 5.0f, 6.0f, 6.0f);
+        legX += 10.0f;
+        g.setColour(Theme::textSecondary);
+        g.setFont(juce::FontOptions(10.0f, juce::Font::plain));
+        g.drawText(name, static_cast<int>(legX), static_cast<int>(badgeY), 45, 18, juce::Justification::centredLeft, false);
+        legX += 50.0f;
+    };
+
+    drawLegendDot(Theme::traceMagnitude, "H1 (Meas)");
+    if (showH2_) drawLegendDot(Theme::traceH2, "H2");
+    if (hasSnapshotA_ && showSnapshotA_) drawLegendDot(Theme::traceSnapshotA, "Snap A");
+    if (hasSnapshotB_ && showSnapshotB_) drawLegendDot(Theme::traceSnapshotB, "Snap B");
+
+    auto buildMagPath = [&](juce::Path& p, const dsp::TransferFunctionFrame& f, const std::vector<double>& dbValues) {
+        p.clear();
         bool started = false;
         for (std::size_t k = 1; k < f.numBins; ++k) {
             const double freq = f.frequenciesHz[k];
@@ -183,38 +213,41 @@ void TransferPlotComponent::drawMagnitudePanel(juce::Graphics& g, juce::Rectangl
                 p.lineTo(x, y);
             }
         }
-        return p;
     };
 
     g.saveState();
     g.reduceClipRegion(area.toNearestInt());
 
     if (hasSnapshotA_ && showSnapshotA_) {
+        buildMagPath(scratchPathSnapA_, snapshotA_, snapshotA_.magnitudeDb);
         g.setColour(Theme::traceSnapshotA.withAlpha(0.55f));
-        g.strokePath(buildMagPath(snapshotA_, snapshotA_.magnitudeDb), juce::PathStrokeType(1.3f));
+        g.strokePath(scratchPathSnapA_, juce::PathStrokeType(1.3f));
     }
     if (hasSnapshotB_ && showSnapshotB_) {
+        buildMagPath(scratchPathSnapB_, snapshotB_, snapshotB_.magnitudeDb);
         g.setColour(Theme::traceSnapshotB.withAlpha(0.65f));
-        g.strokePath(buildMagPath(snapshotB_, snapshotB_.magnitudeDb), juce::PathStrokeType(1.3f));
+        g.strokePath(scratchPathSnapB_, juce::PathStrokeType(1.3f));
     }
     if (hasData_) {
         if (showH2_) {
-            g.setColour(Theme::traceH2.withAlpha(0.75f));
-            g.strokePath(buildMagPath(frame_, frame_.h2MagnitudeDb), juce::PathStrokeType(1.25f));
+            buildMagPath(scratchPathH2_, frame_, frame_.h2MagnitudeDb);
+            g.setColour(Theme::traceH2.withAlpha(0.80f));
+            g.strokePath(scratchPathH2_, juce::PathStrokeType(1.25f));
         }
+        buildMagPath(scratchPathMain_, frame_, frame_.magnitudeDb);
         g.setColour(Theme::traceMagnitude);
-        g.strokePath(buildMagPath(frame_, frame_.magnitudeDb), juce::PathStrokeType(1.75f));
+        g.strokePath(scratchPathMain_, juce::PathStrokeType(1.85f));
     }
 
     g.restoreState();
 
     g.setColour(Theme::borderSubtle);
-    g.drawRoundedRectangle(area, 8.0f, 1.0f);
+    g.drawRoundedRectangle(area, 6.0f, 1.0f);
 }
 
 void TransferPlotComponent::drawPhasePanel(juce::Graphics& g, juce::Rectangle<float> area) const {
     g.setColour(Theme::panelBg);
-    g.fillRoundedRectangle(area, 8.0f);
+    g.fillRoundedRectangle(area, 6.0f);
     drawFrequencyGrid(g, area, false);
 
     float minDeg = -180.0f;
@@ -232,7 +265,7 @@ void TransferPlotComponent::drawPhasePanel(juce::Graphics& g, juce::Rectangle<fl
         maxDeg = std::max(180.0f, static_cast<float>(std::ceil(pMax / 180.0) * 180.0));
     }
 
-    g.setFont(11.0f);
+    g.setFont(juce::FontOptions(10.5f, juce::Font::plain));
     for (int step = 0; step <= 4; ++step) {
         const float frac = static_cast<float>(step) / 4.0f;
         const float deg = maxDeg - frac * (maxDeg - minDeg);
@@ -240,21 +273,33 @@ void TransferPlotComponent::drawPhasePanel(juce::Graphics& g, juce::Rectangle<fl
         g.setColour(std::abs(deg) < 0.5f ? Theme::zeroLine : Theme::gridMajor);
         g.drawHorizontalLine(static_cast<int>(y), area.getX(), area.getRight());
 
-        g.setColour(Theme::textSecondary);
+        // Inset top and bottom labels so they stay strictly within phase panel
+        float labelY = y - 7.0f;
+        if (step == 0) labelY = area.getY() + 2.0f;
+        else if (step == 4) labelY = area.getBottom() - 14.0f;
+
+        g.setColour(std::abs(deg) < 0.5f ? Theme::textPrimary : Theme::textSecondary);
         g.drawText(juce::String(static_cast<int>(std::round(deg))) + juce::String::charToString(0x00B0),
-                   4, static_cast<int>(y - 7.0f), static_cast<int>(kLeftMargin - 10.0f), 14,
+                   2, static_cast<int>(labelY), static_cast<int>(kLeftMargin - 8.0f), 14,
                    juce::Justification::centredRight, false);
     }
 
-    g.setColour(Theme::textPrimary);
-    g.setFont(12.0f);
-    g.drawText(unwrapPhase_ ? "PHASE (UNWRAPPED)" : "PHASE (WRAPPED)",
-               static_cast<int>(area.getX() + 10), static_cast<int>(area.getY() + 6),
-               160, 16, juce::Justification::centredLeft, false);
+    // Top-left pill badge
+    const float badgeX = area.getX() + 8.0f;
+    const float badgeY = area.getY() + 6.0f;
+    g.setColour(Theme::badgeBg);
+    g.fillRoundedRectangle(badgeX, badgeY, 130.0f, 18.0f, 4.0f);
+    g.setColour(Theme::badgeBorder);
+    g.drawRoundedRectangle(badgeX, badgeY, 130.0f, 18.0f, 4.0f, 1.0f);
 
-    auto buildPhasePath = [&](const dsp::TransferFunctionFrame& f) {
+    g.setColour(Theme::textPrimary);
+    g.setFont(juce::FontOptions(10.5f, juce::Font::bold));
+    g.drawText(unwrapPhase_ ? "PHASE (UNWRAPPED)" : "PHASE (WRAPPED)",
+               static_cast<int>(badgeX), static_cast<int>(badgeY), 130, 18, juce::Justification::centred, false);
+
+    auto buildPhasePath = [&](juce::Path& p, const dsp::TransferFunctionFrame& f) {
+        p.clear();
         const auto& phaseVec = unwrapPhase_ ? f.phaseUnwrappedDeg : f.phaseWrappedDeg;
-        juce::Path p;
         bool started = false;
         float prevDeg = 0.0f;
 
@@ -275,58 +320,72 @@ void TransferPlotComponent::drawPhasePanel(juce::Graphics& g, juce::Rectangle<fl
             }
             prevDeg = deg;
         }
-        return p;
     };
 
     g.saveState();
     g.reduceClipRegion(area.toNearestInt());
 
     if (hasSnapshotA_ && showSnapshotA_) {
+        buildPhasePath(scratchPathSnapA_, snapshotA_);
         g.setColour(Theme::traceSnapshotA.withAlpha(0.50f));
-        g.strokePath(buildPhasePath(snapshotA_), juce::PathStrokeType(1.2f));
+        g.strokePath(scratchPathSnapA_, juce::PathStrokeType(1.2f));
     }
     if (hasSnapshotB_ && showSnapshotB_) {
+        buildPhasePath(scratchPathSnapB_, snapshotB_);
         g.setColour(Theme::traceSnapshotB.withAlpha(0.60f));
-        g.strokePath(buildPhasePath(snapshotB_), juce::PathStrokeType(1.2f));
+        g.strokePath(scratchPathSnapB_, juce::PathStrokeType(1.2f));
     }
     if (hasData_) {
+        buildPhasePath(scratchPathMain_, frame_);
         g.setColour(Theme::tracePhase);
-        g.strokePath(buildPhasePath(frame_), juce::PathStrokeType(1.5f));
+        g.strokePath(scratchPathMain_, juce::PathStrokeType(1.6f));
     }
 
     g.restoreState();
 
     g.setColour(Theme::borderSubtle);
-    g.drawRoundedRectangle(area, 8.0f, 1.0f);
+    g.drawRoundedRectangle(area, 6.0f, 1.0f);
 }
 
 void TransferPlotComponent::drawCoherencePanel(juce::Graphics& g, juce::Rectangle<float> area) const {
     g.setColour(Theme::panelBg);
-    g.fillRoundedRectangle(area, 8.0f);
+    g.fillRoundedRectangle(area, 6.0f);
     drawFrequencyGrid(g, area, true);
 
-    g.setFont(11.0f);
+    g.setFont(juce::FontOptions(10.5f, juce::Font::plain));
     for (float c : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
         const float y = area.getY() + (1.0f - c) * area.getHeight();
         g.setColour(Theme::gridMajor);
         g.drawHorizontalLine(static_cast<int>(y), area.getX(), area.getRight());
+
+        float labelY = y - 7.0f;
+        if (c >= 0.99f) labelY = area.getY() + 2.0f;
+        else if (c <= 0.01f) labelY = area.getBottom() - 14.0f;
+
         g.setColour(Theme::textSecondary);
         g.drawText(juce::String(c, 2),
-                   4, static_cast<int>(y - 7.0f), static_cast<int>(kLeftMargin - 10.0f), 14,
+                   2, static_cast<int>(labelY), static_cast<int>(kLeftMargin - 8.0f), 14,
                    juce::Justification::centredRight, false);
     }
 
+    // Top-left pill badge
+    const float badgeX = area.getX() + 8.0f;
+    const float badgeY = area.getY() + 6.0f;
+    g.setColour(Theme::badgeBg);
+    g.fillRoundedRectangle(badgeX, badgeY, 110.0f, 18.0f, 4.0f);
+    g.setColour(Theme::badgeBorder);
+    g.drawRoundedRectangle(badgeX, badgeY, 110.0f, 18.0f, 4.0f, 1.0f);
+
     g.setColour(Theme::textPrimary);
-    g.setFont(12.0f);
-    g.drawText("COHERENCE", static_cast<int>(area.getX() + 10), static_cast<int>(area.getY() + 6),
-               120, 16, juce::Justification::centredLeft, false);
+    g.setFont(juce::FontOptions(10.5f, juce::Font::bold));
+    g.drawText("COHERENCE (γ²)", static_cast<int>(badgeX), static_cast<int>(badgeY), 110, 18, juce::Justification::centred, false);
 
     g.saveState();
     g.reduceClipRegion(area.toNearestInt());
 
-    auto drawCohTrace = [&](const dsp::TransferFunctionFrame& f, juce::Colour col, bool fill) {
-        juce::Path strokePath;
-        juce::Path fillPath;
+    auto drawCohTrace = [&](juce::Path& strokePath, juce::Path& fillPath, const dsp::TransferFunctionFrame& f, juce::Colour col, bool fill) {
+        strokePath.clear();
+        fillPath.clear();
         bool started = false;
         float firstX = area.getX();
         float lastX = area.getX();
@@ -357,28 +416,28 @@ void TransferPlotComponent::drawCoherencePanel(juce::Graphics& g, juce::Rectangl
                 fillPath.lineTo(lastX, area.getBottom());
                 fillPath.lineTo(firstX, area.getBottom());
                 fillPath.closeSubPath();
-                g.setColour(col.withAlpha(0.14f));
+                g.setColour(col.withAlpha(0.12f));
                 g.fillPath(fillPath);
             }
             g.setColour(col);
-            g.strokePath(strokePath, juce::PathStrokeType(fill ? 1.5f : 1.15f));
+            g.strokePath(strokePath, juce::PathStrokeType(fill ? 1.6f : 1.2f));
         }
     };
 
     if (hasSnapshotA_ && showSnapshotA_) {
-        drawCohTrace(snapshotA_, Theme::traceSnapshotA.withAlpha(0.5f), false);
+        drawCohTrace(scratchPathSnapA_, scratchPathFill_, snapshotA_, Theme::traceSnapshotA.withAlpha(0.5f), false);
     }
     if (hasSnapshotB_ && showSnapshotB_) {
-        drawCohTrace(snapshotB_, Theme::traceSnapshotB.withAlpha(0.6f), false);
+        drawCohTrace(scratchPathSnapB_, scratchPathFill_, snapshotB_, Theme::traceSnapshotB.withAlpha(0.6f), false);
     }
     if (hasData_) {
-        drawCohTrace(frame_, Theme::traceCoherence, true);
+        drawCohTrace(scratchPathMain_, scratchPathFill_, frame_, Theme::traceCoherence, true);
     }
 
     g.restoreState();
 
     g.setColour(Theme::borderSubtle);
-    g.drawRoundedRectangle(area, 8.0f, 1.0f);
+    g.drawRoundedRectangle(area, 6.0f, 1.0f);
 }
 
 void TransferPlotComponent::drawCursorReadout(juce::Graphics& g, juce::Rectangle<float> fullPlotArea) const {
@@ -386,14 +445,15 @@ void TransferPlotComponent::drawCursorReadout(juce::Graphics& g, juce::Rectangle
 
     if (hasPinnedCursor_) {
         const float px = freqToX(pinnedFreqHz_, fullPlotArea.getX(), fullPlotArea.getWidth());
-        g.setColour(Theme::traceSnapshotA.withAlpha(0.75f));
+        g.setColour(Theme::traceSnapshotA.withAlpha(0.70f));
         g.drawVerticalLine(static_cast<int>(px), fullPlotArea.getY(), fullPlotArea.getBottom());
     }
 
     if (!mouseInside_) return;
     if (mousePos_.x < fullPlotArea.getX() || mousePos_.x > fullPlotArea.getRight()) return;
 
-    g.setColour(Theme::textSecondary.withAlpha(0.55f));
+    // Subtle crosshair hairline
+    g.setColour(Theme::textSecondary.withAlpha(0.40f));
     g.drawVerticalLine(static_cast<int>(mousePos_.x), fullPlotArea.getY(), fullPlotArea.getBottom());
 
     const double freq = xToFreq(mousePos_.x, fullPlotArea.getX(), fullPlotArea.getWidth());
@@ -403,9 +463,9 @@ void TransferPlotComponent::drawCursorReadout(juce::Graphics& g, juce::Rectangle
     const double ph = unwrapPhase_ ? frame_.phaseUnwrappedDeg[bin] : frame_.phaseWrappedDeg[bin];
     const double coh = frame_.coherence[bin];
 
-    juce::String text = juce::String(freq, freq >= 1000.0 ? 0 : 1) + " Hz  |  "
-        + juce::String(mag, 2) + " dB  |  "
-        + juce::String(ph, 1) + juce::String::charToString(0x00B0) + "  |  Coh: "
+    juce::String text = juce::String(freq, freq >= 1000.0 ? 0 : 1) + " Hz   |   "
+        + juce::String(mag, 2) + " dB   |   "
+        + juce::String(ph, 1) + juce::String::charToString(0x00B0) + "   |   Coh: "
         + juce::String(coh, 3);
 
     if (hasPinnedCursor_) {
@@ -418,20 +478,20 @@ void TransferPlotComponent::drawCursorReadout(juce::Graphics& g, juce::Rectangle
             + juce::String(dPh, 1) + juce::String::charToString(0x00B0) + "]";
     }
 
-    const float boxW = hasPinnedCursor_ ? 450.0f : 315.0f;
-    const float boxH = 24.0f;
-    const float boxX = std::min(mousePos_.x + 12.0f, fullPlotArea.getRight() - boxW - 6.0f);
-    const float boxY = fullPlotArea.getY() + 6.0f;
+    const float boxW = hasPinnedCursor_ ? 460.0f : 320.0f;
+    const float boxH = 26.0f;
+    const float boxX = std::min(mousePos_.x + 14.0f, fullPlotArea.getRight() - boxW - 8.0f);
+    const float boxY = fullPlotArea.getY() + 8.0f;
 
-    g.setColour(Theme::barBg.withAlpha(0.94f));
+    g.setColour(Theme::barBg.withAlpha(0.95f));
     g.fillRoundedRectangle(boxX, boxY, boxW, boxH, 6.0f);
     g.setColour(Theme::borderLightGray);
     g.drawRoundedRectangle(boxX, boxY, boxW, boxH, 6.0f, 1.0f);
 
     g.setColour(Theme::textPrimary);
-    g.setFont(11.5f);
-    g.drawText(text, static_cast<int>(boxX + 8), static_cast<int>(boxY),
-               static_cast<int>(boxW - 16), static_cast<int>(boxH),
+    g.setFont(juce::FontOptions(11.5f, juce::Font::bold));
+    g.drawText(text, static_cast<int>(boxX + 10), static_cast<int>(boxY),
+               static_cast<int>(boxW - 20), static_cast<int>(boxH),
                juce::Justification::centredLeft, false);
 }
 
@@ -443,11 +503,11 @@ void TransferPlotComponent::paint(juce::Graphics& g) {
     const float plotWidth = std::max(10.0f, bounds.getWidth() - kLeftMargin - kRightMargin);
     const float totalHeight = std::max(60.0f, bounds.getHeight() - 26.0f);
 
-    constexpr float gap = 6.0f;
+    constexpr float gap = 14.0f;
     const float usableH = totalHeight - 2.0f * gap;
-    const float magH = usableH * 0.48f;
+    const float magH = usableH * 0.46f;
     const float phaseH = usableH * 0.30f;
-    const float cohH = usableH * 0.22f;
+    const float cohH = usableH * 0.24f;
 
     const juce::Rectangle<float> magArea(plotLeft, 4.0f, plotWidth, magH);
     const juce::Rectangle<float> phaseArea(plotLeft, magArea.getBottom() + gap, plotWidth, phaseH);

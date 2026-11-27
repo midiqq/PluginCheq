@@ -40,7 +40,7 @@ TEST_CASE("DynamicsEngine: Correctly detects compression curve and ratio", "[dyn
     dyn.processBlock(ref.data(), meas.data(), numSamples, frame);
 
     REQUIRE(frame.hasData);
-    REQUIRE(frame.inputLevelsDb.size() > 10);
+    REQUIRE(frame.inputLevelsDb.size() >= 8);
     REQUIRE(frame.estimatedRatio > 1.5f);
 }
 
@@ -63,10 +63,10 @@ TEST_CASE("HarmonicEngine: Accurately identifies sine fundamental and harmonic d
     harm.processBlock(meas.data(), fftSize, frame);
 
     REQUIRE(frame.hasData);
-    REQUIRE_THAT(frame.fundamentalFreqHz, WithinAbs(1000.0, 20.0));
-    REQUIRE_THAT(frame.fundamentalLevelDb, WithinAbs(-6.0, 1.0));
+    REQUIRE_THAT(frame.fundamentalFreqHz, WithinAbs(1000.0, 5.0));
+    REQUIRE_THAT(frame.fundamentalLevelDb, WithinAbs(-6.0, 0.5));
     REQUIRE(frame.thdPercent > 8.0f);
     REQUIRE(frame.thdPercent < 12.0f);
     REQUIRE(frame.harmonicRelativeDb.size() >= 1);
-    REQUIRE_THAT(frame.harmonicRelativeDb[0], WithinAbs(-20.0, 1.5));
+    REQUIRE_THAT(frame.harmonicRelativeDb[0], WithinAbs(-20.0, 1.0));
 }

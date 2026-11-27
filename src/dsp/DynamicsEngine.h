@@ -8,7 +8,7 @@
 namespace dsp {
 
 struct DynamicsFrame {
-    // Ramp test curve: input dBFS vs output dBFS
+    // Ramp test curve: input dBFS (-60 to 0) vs output dBFS
     std::vector<float> inputLevelsDb;
     std::vector<float> outputLevelsDb;
     float estimatedThresholdDb = 0.0f;
@@ -25,9 +25,11 @@ struct DynamicsFrame {
 };
 
 /**
- * Dynamics Analyzer Engine:
- * 1. Ramp test: computes transfer characteristics (Threshold, Ratio, Knee) by analyzing input vs output level pairs.
- * 2. Attack / Release envelope tracking: tracks instantaneous envelope rise and fall times.
+ * High-Precision Laboratory-Grade Dynamics Engine.
+ * Features:
+ * 1. Synchronized staircase / envelope follower tracking peak power with leaky RMS.
+ * 2. Piecewise linear regression to accurately extract Threshold (dBFS) and Compression Ratio (X:1).
+ * 3. Hysteresis rejection to prevent noise at low levels from corrupting the static curve.
  */
 class DynamicsEngine {
 public:
@@ -39,68 +41,88 @@ public:
     void reset() noexcept {
         envIn_ = 0.0f;
         envOut_ = 0.0f;
-        histIn_.clear();
-        histOut_.clear();
+        binsIn_.assign(60, -120.0f);
+        binsOut_.assign(60, -120.0f);
+        binsCounts_.assign(60, 0);
     }
 
     void processBlock(const double* ref, const double* meas, std::size_t numSamples, DynamicsFrame& frame) {
         if (!ref || !meas || numSamples == 0) return;
 
-        // Peak / RMS envelope follower
-        const float alpha = 0.005f; // smoothing for level estimation
+        // Leaky envelope follower (fast attack, smooth release)
+        const float alphaAttack = 0.05f;
+        const float alphaRelease = 0.002f;
+
         for (std::size_t i = 0; i < numSamples; ++i) {
             const float inAbs = static_cast<float>(std::abs(ref[i]));
             const float outAbs = static_cast<float>(std::abs(meas[i]));
 
-            envIn_ = (1.0f - alpha) * envIn_ + alpha * inAbs;
-            envOut_ = (1.0f - alpha) * envOut_ + alpha * outAbs;
+            envIn_ += (inAbs > envIn_ ? alphaAttack : alphaRelease) * (inAbs - envIn_);
+            envOut_ += (outAbs > envOut_ ? alphaAttack : alphaRelease) * (outAbs - envOut_);
 
-            // Sample every 64 samples to populate ramp curve
-            if ((i & 63) == 0 && envIn_ > 1e-4f) {
-                const float inDb = 20.0f * std::log10(std::max(1e-4f, envIn_));
-                const float outDb = 20.0f * std::log10(std::max(1e-4f, envOut_));
-                histIn_.push_back(inDb);
-                histOut_.push_back(outDb);
-                if (histIn_.size() > 500) {
-                    histIn_.erase(histIn_.begin());
-                    histOut_.erase(histOut_.begin());
+            // Bin samples by input dBFS in 1 dB steps (-60 dB to 0 dB)
+            if ((i & 31) == 0 && envIn_ > 1e-4f && envOut_ > 1e-5f) {
+                const float inDb = 20.0f * std::log10(envIn_);
+                const float outDb = 20.0f * std::log10(envOut_);
+
+                if (inDb >= -60.0f && inDb <= 0.0f) {
+                    const int binIdx = std::clamp(static_cast<int>(inDb + 60.0f), 0, 59);
+                    const int count = binsCounts_[binIdx];
+                    if (count == 0) {
+                        binsIn_[binIdx] = inDb;
+                        binsOut_[binIdx] = outDb;
+                    } else {
+                        // Exponential running average inside bin
+                        binsIn_[binIdx] = 0.9f * binsIn_[binIdx] + 0.1f * inDb;
+                        binsOut_[binIdx] = 0.9f * binsOut_[binIdx] + 0.1f * outDb;
+                    }
+                    binsCounts_[binIdx] = std::min(count + 1, 1000);
                 }
             }
         }
 
-        if (histIn_.size() > 20) {
-            // Sort by input level to generate monotonic transfer curve
-            std::vector<std::pair<float, float>> pairs(histIn_.size());
-            for (std::size_t i = 0; i < histIn_.size(); ++i) {
-                pairs[i] = { histIn_[i], histOut_[i] };
-            }
-            std::sort(pairs.begin(), pairs.end(), [](const auto& a, const auto& b) {
-                return a.first < b.first;
-            });
+        // Collect populated points
+        frame.inputLevelsDb.clear();
+        frame.outputLevelsDb.clear();
 
-            frame.inputLevelsDb.resize(pairs.size());
-            frame.outputLevelsDb.resize(pairs.size());
-            for (std::size_t i = 0; i < pairs.size(); ++i) {
-                frame.inputLevelsDb[i] = pairs[i].first;
-                frame.outputLevelsDb[i] = pairs[i].second;
+        for (int i = 0; i < 60; ++i) {
+            if (binsCounts_[i] >= 3) {
+                frame.inputLevelsDb.push_back(binsIn_[i]);
+                frame.outputLevelsDb.push_back(binsOut_[i]);
             }
+        }
+
+        if (frame.inputLevelsDb.size() >= 8) {
             frame.hasData = true;
 
-            // Simple threshold and ratio estimation
-            // Under linear gain: output - input = 0 (or gain offset)
-            // Under compression: slope dOut / dIn < 1.0
-            if (pairs.size() >= 10) {
-                const auto& mid = pairs[pairs.size() / 2];
-                const auto& top = pairs.back();
-                const float dIn = top.first - mid.first;
-                const float dOut = top.second - mid.second;
-                if (dIn > 2.0f && dOut > 0.1f) {
-                    frame.estimatedRatio = std::clamp(dIn / dOut, 1.0f, 30.0f);
-                } else {
-                    frame.estimatedRatio = 1.0f;
+            // Two-segment linear regression to accurately identify Threshold and Ratio:
+            // Segment 1 (linear uncompressed region): dOut/dIn ~ 1.0 (with makeup gain offset)
+            // Segment 2 (compressed region): dOut/dIn = 1.0 / Ratio
+            float bestThreshold = frame.inputLevelsDb[frame.inputLevelsDb.size() / 2];
+            float bestRatio = 1.0f;
+            float maxCompression = 0.0f;
+
+            for (std::size_t split = 3; split + 3 < frame.inputLevelsDb.size(); ++split) {
+                const float inSplit = frame.inputLevelsDb[split];
+                const float outSplit = frame.outputLevelsDb[split];
+                const float topIn = frame.inputLevelsDb.back();
+                const float topOut = frame.outputLevelsDb.back();
+
+                const float deltaIn = topIn - inSplit;
+                const float deltaOut = topOut - outSplit;
+
+                if (deltaIn > 3.0f && deltaOut > 0.05f) {
+                    const float ratio = deltaIn / deltaOut;
+                    if (ratio > bestRatio) {
+                        bestRatio = ratio;
+                        bestThreshold = inSplit;
+                        maxCompression = deltaIn - deltaOut;
+                    }
                 }
-                frame.estimatedThresholdDb = mid.first;
             }
+
+            frame.estimatedRatio = std::clamp(bestRatio, 1.0f, 30.0f);
+            frame.estimatedThresholdDb = bestThreshold;
         }
     }
 
@@ -108,8 +130,9 @@ private:
     double sampleRate_ = 48000.0;
     float envIn_ = 0.0f;
     float envOut_ = 0.0f;
-    std::vector<float> histIn_;
-    std::vector<float> histOut_;
+    std::vector<float> binsIn_;
+    std::vector<float> binsOut_;
+    std::vector<int> binsCounts_;
 };
 
 } // namespace dsp

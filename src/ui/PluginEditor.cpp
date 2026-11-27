@@ -7,6 +7,7 @@ PluginEditor::PluginEditor(plugin::DSPAnalysisProcessor& processor)
     : AudioProcessorEditor(&processor),
       processor_(processor),
       controlBar_(processor) {
+    setOpaque(true);
     setLookAndFeel(&lookAndFeel_);
     addAndMakeVisible(controlBar_);
     addAndMakeVisible(plot_);

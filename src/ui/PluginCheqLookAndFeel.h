@@ -2,18 +2,20 @@
 
 #include "Theme.h"
 #include <juce_gui_basics/juce_gui_basics.h>
+#include <algorithm>
 
 namespace ui {
 
 /**
- * Minimalist Apple-inspired Dark + Light-Gray LookAndFeel for PluginCheq.
- * Flat surfaces, 1px hairline borders, pill buttons, clean sans-serif typography.
+ * Minimalist Apple-inspired Pro Dark LookAndFeel for PluginCheq.
+ * Features flat precision surfaces, 1px micro-borders, elegant pill buttons,
+ * crisp custom chevrons, and refined typography.
  */
 class PluginCheqLookAndFeel final : public juce::LookAndFeel_V4 {
 public:
     PluginCheqLookAndFeel() {
         setColour(juce::ResizableWindow::backgroundColourId, Theme::backgroundDark);
-        setColour(juce::PopupMenu::backgroundColourId, Theme::barBg);
+        setColour(juce::PopupMenu::backgroundColourId, Theme::panelBg);
         setColour(juce::PopupMenu::textColourId, Theme::textPrimary);
         setColour(juce::PopupMenu::highlightedBackgroundColourId, Theme::controlHover);
         setColour(juce::PopupMenu::highlightedTextColourId, Theme::textPrimary);
@@ -24,6 +26,7 @@ public:
         setColour(juce::Slider::textBoxTextColourId, Theme::textPrimary);
         setColour(juce::Slider::textBoxBackgroundColourId, Theme::controlSurface);
         setColour(juce::Slider::textBoxOutlineColourId, Theme::borderSubtle);
+        setColour(juce::Slider::textBoxHighlightColourId, Theme::controlHover);
     }
 
     void drawButtonBackground(juce::Graphics& g,
@@ -35,15 +38,20 @@ public:
         const bool toggled = button.getToggleState();
 
         juce::Colour bg = toggled ? Theme::controlActive : Theme::controlSurface;
-        if (!toggled && (shouldDrawButtonAsDown || shouldDrawButtonAsHighlighted)) {
-            bg = Theme::controlHover;
+        if (!toggled) {
+            if (shouldDrawButtonAsDown) {
+                bg = Theme::controlHover.darker(0.15f);
+            } else if (shouldDrawButtonAsHighlighted) {
+                bg = Theme::controlHover;
+            }
         }
 
+        constexpr float cornerRadius = 5.0f;
         g.setColour(bg);
-        g.fillRoundedRectangle(bounds, 6.0f);
+        g.fillRoundedRectangle(bounds, cornerRadius);
 
-        g.setColour(toggled ? Theme::controlActive : Theme::borderLightGray);
-        g.drawRoundedRectangle(bounds, 6.0f, 1.0f);
+        g.setColour(toggled ? Theme::controlActive : (shouldDrawButtonAsHighlighted ? Theme::borderActive : Theme::borderLightGray));
+        g.drawRoundedRectangle(bounds, cornerRadius, 1.0f);
     }
 
     void drawButtonText(juce::Graphics& g,
@@ -52,7 +60,7 @@ public:
                         bool) override {
         const bool toggled = button.getToggleState();
         g.setColour(toggled ? Theme::controlActiveTxt : Theme::textPrimary);
-        g.setFont(juce::FontOptions(12.0f, juce::Font::plain));
+        g.setFont(juce::FontOptions(12.0f, toggled ? juce::Font::bold : juce::Font::plain));
         g.drawFittedText(button.getButtonText(),
                          button.getLocalBounds().reduced(6, 2),
                          juce::Justification::centred, 1);
@@ -61,17 +69,28 @@ public:
     void drawToggleButton(juce::Graphics& g,
                           juce::ToggleButton& button,
                           bool shouldDrawButtonAsHighlighted,
-                          bool) override {
+                          bool shouldDrawButtonAsDown) override {
         const auto bounds = button.getLocalBounds().toFloat().reduced(0.5f);
         const bool toggled = button.getToggleState();
 
-        g.setColour(toggled ? Theme::controlActive : (shouldDrawButtonAsHighlighted ? Theme::controlHover : Theme::controlSurface));
-        g.fillRoundedRectangle(bounds, 6.0f);
-        g.setColour(toggled ? Theme::controlActive : Theme::borderLightGray);
-        g.drawRoundedRectangle(bounds, 6.0f, 1.0f);
+        juce::Colour bg = toggled ? Theme::controlActive : Theme::controlSurface;
+        if (!toggled) {
+            if (shouldDrawButtonAsDown) {
+                bg = Theme::controlHover.darker(0.15f);
+            } else if (shouldDrawButtonAsHighlighted) {
+                bg = Theme::controlHover;
+            }
+        }
 
-        g.setColour(toggled ? Theme::controlActiveTxt : Theme::textSecondary);
-        g.setFont(juce::FontOptions(11.5f, juce::Font::plain));
+        constexpr float cornerRadius = 5.0f;
+        g.setColour(bg);
+        g.fillRoundedRectangle(bounds, cornerRadius);
+
+        g.setColour(toggled ? Theme::controlActive : (shouldDrawButtonAsHighlighted ? Theme::borderActive : Theme::borderLightGray));
+        g.drawRoundedRectangle(bounds, cornerRadius, 1.0f);
+
+        g.setColour(toggled ? Theme::controlActiveTxt : (shouldDrawButtonAsHighlighted ? Theme::textPrimary : Theme::textSecondary));
+        g.setFont(juce::FontOptions(11.5f, toggled ? juce::Font::bold : juce::Font::plain));
         g.drawFittedText(button.getButtonText(),
                          button.getLocalBounds().reduced(6, 2),
                          juce::Justification::centred, 1);
@@ -80,27 +99,39 @@ public:
     void drawComboBox(juce::Graphics& g,
                       int width,
                       int height,
-                      bool,
+                      bool isButtonDown,
                       int,
                       int,
                       int,
                       int,
                       juce::ComboBox& box) override {
         const juce::Rectangle<float> bounds(0.5f, 0.5f, static_cast<float>(width) - 1.0f, static_cast<float>(height) - 1.0f);
-        g.setColour(Theme::controlSurface);
-        g.fillRoundedRectangle(bounds, 6.0f);
-        g.setColour(Theme::borderLightGray);
-        g.drawRoundedRectangle(bounds, 6.0f, 1.0f);
+        constexpr float cornerRadius = 5.0f;
 
-        // Minimalist chevron
+        const bool isHighlighted = box.isMouseOver(true) || isButtonDown;
+        g.setColour(isHighlighted ? Theme::controlHover : Theme::controlSurface);
+        g.fillRoundedRectangle(bounds, cornerRadius);
+
+        g.setColour(isHighlighted ? Theme::borderActive : Theme::borderLightGray);
+        g.drawRoundedRectangle(bounds, cornerRadius, 1.0f);
+
+        // Apple-style minimalist chevron
         const float arrowX = static_cast<float>(width) - 14.0f;
         const float arrowY = static_cast<float>(height) * 0.5f - 2.0f;
         juce::Path p;
         p.startNewSubPath(arrowX - 3.5f, arrowY);
         p.lineTo(arrowX, arrowY + 3.5f);
         p.lineTo(arrowX + 3.5f, arrowY);
-        g.setColour(box.isEnabled() ? Theme::textSecondary : Theme::textMuted);
+
+        g.setColour(box.isEnabled() ? (isHighlighted ? Theme::textPrimary : Theme::textSecondary) : Theme::textMuted);
         g.strokePath(p, juce::PathStrokeType(1.3f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    }
+
+    void positionComboBoxText(juce::ComboBox& box, juce::Label& label) override {
+        label.setBounds(4, 1, box.getWidth() - 22, box.getHeight() - 2);
+        label.setFont(juce::FontOptions(11.0f, juce::Font::plain));
+        label.setJustificationType(juce::Justification::centredLeft);
+        label.setColour(juce::Label::textColourId, box.isEnabled() ? Theme::textPrimary : Theme::textMuted);
     }
 
     void drawLinearSlider(juce::Graphics& g,
@@ -112,19 +143,69 @@ public:
                           float,
                           float,
                           juce::Slider::SliderStyle,
-                          juce::Slider&) override {
+                          juce::Slider& slider) override {
         const float trackY = static_cast<float>(y) + static_cast<float>(height) * 0.5f;
         const float left = static_cast<float>(x) + 4.0f;
         const float right = static_cast<float>(x + width) - 4.0f;
+        const float trackH = 4.0f;
 
+        // Recessed track background
         g.setColour(Theme::controlSurface);
-        g.fillRoundedRectangle(left, trackY - 2.0f, right - left, 4.0f, 2.0f);
+        g.fillRoundedRectangle(left, trackY - trackH * 0.5f, right - left, trackH, 2.0f);
 
-        g.setColour(Theme::textSecondary);
-        g.fillRoundedRectangle(left, trackY - 2.0f, std::max(0.0f, sliderPos - left), 4.0f, 2.0f);
+        // Active track highlight (Sky Cyan / Slate)
+        const float activeW = std::clamp(sliderPos - left, 0.0f, right - left);
+        g.setColour(Theme::traceMagnitude.withAlpha(0.65f));
+        g.fillRoundedRectangle(left, trackY - trackH * 0.5f, activeW, trackH, 2.0f);
 
+        // Circular thumb handle
+        const float thumbRadius = slider.isMouseOverOrDragging() ? 6.0f : 5.0f;
+        g.setColour(Theme::backgroundDark);
+        g.fillEllipse(sliderPos - thumbRadius - 0.5f, trackY - thumbRadius - 0.5f, (thumbRadius + 0.5f) * 2.0f, (thumbRadius + 0.5f) * 2.0f);
         g.setColour(Theme::textPrimary);
-        g.fillEllipse(sliderPos - 5.5f, trackY - 5.5f, 11.0f, 11.0f);
+        g.fillEllipse(sliderPos - thumbRadius, trackY - thumbRadius, thumbRadius * 2.0f, thumbRadius * 2.0f);
+    }
+
+    void drawPopupMenuBackground(juce::Graphics& g, int width, int height) override {
+        const juce::Rectangle<float> bounds(0.5f, 0.5f, static_cast<float>(width) - 1.0f, static_cast<float>(height) - 1.0f);
+        g.setColour(Theme::panelBg);
+        g.fillRoundedRectangle(bounds, 6.0f);
+        g.setColour(Theme::borderLightGray);
+        g.drawRoundedRectangle(bounds, 6.0f, 1.0f);
+    }
+
+    void drawPopupMenuItem(juce::Graphics& g, const juce::Rectangle<int>& area,
+                           bool isSeparator, bool isActive, bool isHighlighted,
+                           bool isTicked, bool hasSubMenu, const juce::String& text,
+                           const juce::String& shortcutKeyText,
+                           const juce::Drawable* icon, const juce::Colour* textColour) override {
+        if (isSeparator) {
+            auto r = area.reduced(5, 0);
+            g.setColour(Theme::borderSubtle);
+            g.drawHorizontalLine(r.getCentreY(), static_cast<float>(r.getX()), static_cast<float>(r.getRight()));
+            return;
+        }
+
+        if (isHighlighted && isActive) {
+            g.setColour(Theme::controlHover);
+            g.fillRoundedRectangle(area.reduced(2, 1).toFloat(), 4.0f);
+        }
+
+        juce::Colour textCol = Theme::textPrimary;
+        if (!isActive) {
+            textCol = Theme::textMuted;
+        } else if (textColour != nullptr) {
+            textCol = *textColour;
+        }
+
+        g.setColour(textCol);
+        g.setFont(juce::FontOptions(12.0f, isTicked ? juce::Font::bold : juce::Font::plain));
+
+        auto textBounds = area.reduced(10, 0);
+        if (isTicked) {
+            g.drawText(juce::CharPointer_UTF8("\xE2\x9C\x93 "), textBounds.removeFromLeft(16), juce::Justification::centredLeft, false);
+        }
+        g.drawFittedText(text, textBounds, juce::Justification::centredLeft, 1);
     }
 };
 

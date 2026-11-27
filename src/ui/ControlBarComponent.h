@@ -7,6 +7,15 @@
 
 namespace ui {
 
+/**
+ * Precision Laboratory Control Bar:
+ *   - Apple-style segmented tabs: [ Linear / EQ ] [ Dynamics ] [ Harmonics / THD ]
+ *   - Brand wordmark & dynamic telemetry badge (Tap Bus / Sidechain / Delay Lock)
+ *   - Primary measurement action buttons (Auto-Align, Freeze, Reset, Advanced Drawer)
+ *   - Signal routing, smoothing, channel mode, internal test generator, and A/B snapshots
+ *   - Expandable Advanced Drawer with grouped Analysis Engine & Display options
+ *   - Precision dual peak meters with clip detection
+ */
 class ControlBarComponent final : public juce::Component {
 public:
     explicit ControlBarComponent(plugin::DSPAnalysisProcessor& processor);
@@ -32,31 +41,35 @@ public:
                       const dsp::DelayEstimate& delayEstimate);
 
     void setAdvancedOpen(bool isOpen);
+    bool isAdvancedOpen() const noexcept { return isAdvancedOpen_; }
 
     void paint(juce::Graphics& g) override;
     void resized() override;
 
 private:
+    void updateViewButtonStates();
+
     plugin::DSPAnalysisProcessor& processor_;
     bool isAdvancedOpen_ = false;
 
-    // --- VIEW SELECTORS (PluginDoctor Tabs) ---
+    // --- VIEW SELECTORS (Apple Segmented Tab Capsule) ---
     juce::TextButton viewTransferBtn_{"Linear / EQ"};
     juce::TextButton viewDynamicsBtn_{"Dynamics"};
     juce::TextButton viewHarmonicsBtn_{"Harmonics / THD"};
     int currentView_ = 0; // 0 = Transfer, 1 = Dynamics, 2 = Harmonics
+    juce::Rectangle<int> segmentedCapsuleBounds_;
 
-    // --- ROW 1: Routing & Primary Workflow ---
-    juce::ComboBox routingBox_;
-    juce::ComboBox tapChannelBox_;
-    juce::TextButton swapButton_{"⇄ Swap"};
-    juce::TextButton findDelayButton_{"⚡ Auto-Align Delay"};
+    // --- ROW 1: Primary Action Buttons ---
+    juce::TextButton findDelayButton_{"Auto-Align Delay"};
     juce::TextButton freezeButton_{"Freeze"};
     juce::TextButton resetAvgButton_{"Reset"};
-    juce::TextButton advancedToggleBtn_{"⚙ Advanced"};
+    juce::TextButton advancedToggleBtn_{"Advanced"};
     juce::TextButton helpBtn_{"?"};
 
-    // --- ROW 2 (Primary bar): Smoothing, Snapshots & Generator ---
+    // --- ROW 2: Primary Measurement Bar (Routing, Smoothing, Generator, Snapshots) ---
+    juce::ComboBox routingBox_;
+    juce::ComboBox tapChannelBox_;
+    juce::TextButton swapButton_{"Swap"};
     juce::ComboBox smoothingBox_;
     juce::ComboBox channelBox_;
     juce::ComboBox generatorBox_;
@@ -67,19 +80,25 @@ private:
     juce::TextButton storeBButton_{"Save B"};
     juce::ToggleButton showBButton_{"B"};
 
-    // --- ROW 3 & 4 (Advanced Settings Drawer) ---
+    // --- ADVANCED SETTINGS DRAWER ---
+    // Section 1: FFT Engine
     juce::ComboBox fftSizeBox_;
     juce::ComboBox windowBox_;
     juce::ComboBox avgModeBox_;
     juce::Slider alphaSlider_;
     juce::Label alphaLabel_{{}, "Alpha:"};
+
+    // Section 2: Display & Traces
     juce::ComboBox magRangeBox_;
     juce::ToggleButton unwrapButton_{"Unwrap Phase"};
     juce::ToggleButton showH2Button_{"Show H2"};
+
+    // Section 3: Time Alignment
     juce::ToggleButton delayCompButton_{"Comp Delay"};
     juce::Slider delayMsSlider_;
-    juce::Label delayMsLabel_{{}, "Manual ms:"};
+    juce::Label delayMsLabel_{{}, "Delay ms:"};
 
+    // Attachments
     using ButtonAttachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
     using ComboAttachment  = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
     using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
@@ -102,6 +121,7 @@ private:
     std::unique_ptr<ButtonAttachment> delayCompAtt_;
     std::unique_ptr<SliderAttachment> delayMsAtt_;
 
+    // Telemetry state
     float refPeak_ = 0.0f;
     float measPeak_ = 0.0f;
     double sampleRate_ = 48000.0;

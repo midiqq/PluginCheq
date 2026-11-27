@@ -12,6 +12,13 @@ if not exist "%DEST_DIR%" (
     mkdir "%DEST_DIR%" 2>nul
 )
 
+rem Si existe un archivo monolitico viejo llamado PluginCheq.vst3, eliminarlo para permitir copiar la carpeta bundle
+if exist "%DEST_DIR%\PluginCheq.vst3" (
+    if not exist "%DEST_DIR%\PluginCheq.vst3\" (
+        del /f /q "%DEST_DIR%\PluginCheq.vst3" 2>nul
+    )
+)
+
 echo Copiando PluginCheq.vst3 a %DEST_DIR%...
 xcopy /E /I /Y "%~dp0PluginCheq.vst3" "%DEST_DIR%\PluginCheq.vst3" >nul
 

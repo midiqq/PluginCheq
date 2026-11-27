@@ -35,7 +35,7 @@ target_include_directories(dsp_core PUBLIC
 )
 
 if(MSVC)
-    target_compile_options(dsp_core PRIVATE /W4 /permissive-)
+    target_compile_options(dsp_core PRIVATE /W4 /permissive- /utf-8)
 else()
     target_compile_options(dsp_core PRIVATE -Wall -Wextra -Wpedantic)
 endif()
@@ -120,6 +120,10 @@ if(BUILD_PLUGIN)
         JUCE_STRICT_REFCOUNTEDPOINTER=1
         JUCE_DISPLAY_SPLASH_SCREEN=0
     )
+
+    if(MSVC)
+        target_compile_options(PluginCheq PRIVATE /utf-8)
+    endif()
 
     target_link_libraries(PluginCheq
         PRIVATE
