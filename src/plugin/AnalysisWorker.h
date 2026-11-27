@@ -43,8 +43,8 @@ public:
 private:
     void applyPendingConfig();
 
-    dsp::RingBuffer<double> refRing_{131072};
-    dsp::RingBuffer<double> measRing_{131072};
+    dsp::RingBuffer<double> refRing_{262144};
+    dsp::RingBuffer<double> measRing_{262144};
 
     dsp::TransferFunctionEngine engine_;
     dsp::DynamicsEngine dynamicsEngine_;

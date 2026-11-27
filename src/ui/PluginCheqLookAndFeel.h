@@ -186,9 +186,9 @@ public:
 
     void drawPopupMenuItem(juce::Graphics& g, const juce::Rectangle<int>& area,
                            bool isSeparator, bool isActive, bool isHighlighted,
-                           bool isTicked, bool hasSubMenu, const juce::String& text,
-                           const juce::String& shortcutKeyText,
-                           const juce::Drawable* icon, const juce::Colour* textColour) override {
+                           bool isTicked, bool /*hasSubMenu*/, const juce::String& text,
+                           const juce::String& /*shortcutKeyText*/,
+                           const juce::Drawable* /*icon*/, const juce::Colour* textColour) override {
         if (isSeparator) {
             auto r = area.reduced(5, 0);
             g.setColour(Theme::borderSubtle);

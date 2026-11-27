@@ -9,6 +9,8 @@ AnalysisWorker::AnalysisWorker()
     : juce::Thread("DSPAnalysisWorker") {
     dsp::TransferFunctionConfig initial;
     engine_.configure(initial);
+    dynamicsEngine_.prepare(initial.sampleRate);
+    harmonicEngine_.prepare(initial.fftSize, initial.sampleRate);
     pendingConfig_ = initial;
 
     refSlideBuf_.assign(initial.fftSize, 0.0);
@@ -24,20 +26,23 @@ AnalysisWorker::~AnalysisWorker() {
 }
 
 void AnalysisWorker::prepare(double sampleRate, std::size_t maxBlockSize) {
-    const std::size_t minCap = std::max<std::size_t>(131072, maxBlockSize * 16);
+    const double safeSampleRate = (sampleRate > 1000.0) ? sampleRate : 48000.0;
+    const std::size_t minCap = std::max<std::size_t>(262144, maxBlockSize * 16);
     if (refRing_.capacity() < minCap) {
+        if (isThreadRunning()) {
+            signalThreadShouldExit();
+            dataReadyEvent_.signal();
+            stopThread(2000);
+        }
         refRing_.resize(minCap);
         measRing_.resize(minCap);
     }
 
     {
         const juce::SpinLock::ScopedLockType sl(configLock_);
-        pendingConfig_.sampleRate = sampleRate;
+        pendingConfig_.sampleRate = safeSampleRate;
         configDirty_.store(true, std::memory_order_release);
     }
-
-    dynamicsEngine_.prepare(sampleRate);
-    harmonicEngine_.prepare(engine_.config().fftSize, sampleRate);
 
     buffersResetRequested_.store(true, std::memory_order_release);
 
@@ -93,6 +98,7 @@ void AnalysisWorker::applyPendingConfig() {
         measRing_.reset();
         std::fill(refSlideBuf_.begin(), refSlideBuf_.end(), 0.0);
         std::fill(measSlideBuf_.begin(), measSlideBuf_.end(), 0.0);
+        dynamicsEngine_.reset();
     }
 
     if (configDirty_.exchange(false, std::memory_order_acq_rel)) {
@@ -103,11 +109,19 @@ void AnalysisWorker::applyPendingConfig() {
         }
 
         const bool fftSizeChanged = (cfg.fftSize != engine_.config().fftSize);
+        const bool sampleRateChanged = (std::abs(cfg.sampleRate - engine_.config().sampleRate) > 1e-3);
         engine_.configure(cfg);
 
-        if (fftSizeChanged || refSlideBuf_.size() != cfg.fftSize) {
-            refSlideBuf_.assign(cfg.fftSize, 0.0);
-            measSlideBuf_.assign(cfg.fftSize, 0.0);
+        if (sampleRateChanged) {
+            dynamicsEngine_.prepare(cfg.sampleRate);
+        }
+        if (fftSizeChanged || sampleRateChanged) {
+            harmonicEngine_.prepare(engine_.config().fftSize, cfg.sampleRate);
+        }
+
+        if (fftSizeChanged || refSlideBuf_.size() != engine_.config().fftSize) {
+            refSlideBuf_.assign(engine_.config().fftSize, 0.0);
+            measSlideBuf_.assign(engine_.config().fftSize, 0.0);
         }
         hopScratchRef_.assign(engine_.hopSize(), 0.0);
         hopScratchMeas_.assign(engine_.hopSize(), 0.0);
@@ -115,6 +129,7 @@ void AnalysisWorker::applyPendingConfig() {
 
     if (resetRequested_.exchange(false, std::memory_order_acq_rel)) {
         engine_.resetAveraging();
+        dynamicsEngine_.reset();
     }
 }
 

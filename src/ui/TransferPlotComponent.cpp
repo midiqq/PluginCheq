@@ -13,7 +13,10 @@ TransferPlotComponent::TransferPlotComponent() {
 
 void TransferPlotComponent::updateFrame(const dsp::TransferFunctionFrame& frame) {
     frame_ = frame;
-    hasData_ = (frame_.numBins > 2);
+    hasData_ = (frame_.numBins > 2
+                && frame_.frequenciesHz.size() >= frame_.numBins
+                && frame_.magnitudeDb.size() >= frame_.numBins
+                && frame_.coherence.size() >= frame_.numBins);
     repaint();
 }
 
@@ -96,10 +99,12 @@ double TransferPlotComponent::xToFreq(float x, float left, float width) const no
 }
 
 std::size_t TransferPlotComponent::freqToBin(const dsp::TransferFunctionFrame& f, double freqHz) const noexcept {
-    if (f.numBins < 2 || f.fftSize == 0 || f.sampleRate <= 0.0) return 0;
+    if (f.numBins < 2 || f.fftSize == 0 || f.sampleRate <= 0.0 || f.magnitudeDb.empty()) return 0;
     const double binHz = f.sampleRate / static_cast<double>(f.fftSize);
+    const std::size_t maxBin = std::min(f.numBins - 1, f.magnitudeDb.size() - 1);
+    if (maxBin < 1) return 0;
     return std::clamp<std::size_t>(
-        static_cast<std::size_t>(std::llround(freqHz / binHz)), 1, f.numBins - 1);
+        static_cast<std::size_t>(std::llround(freqHz / binHz)), 1, maxBin);
 }
 
 void TransferPlotComponent::drawFrequencyGrid(juce::Graphics& g, juce::Rectangle<float> area) const {
@@ -191,7 +196,7 @@ void TransferPlotComponent::drawCoherenceScale(juce::Graphics& g, juce::Rectangl
 }
 
 void TransferPlotComponent::drawHoverHUD(juce::Graphics& g, juce::Rectangle<float> area) const {
-    if (!hasData_) return;
+    if (!hasData_ || frame_.magnitudeDb.empty() || frame_.coherence.empty()) return;
 
     if (hasPinnedCursor_) {
         const float px = freqToX(pinnedFreqHz_, area.getX(), area.getWidth());
@@ -208,6 +213,7 @@ void TransferPlotComponent::drawHoverHUD(juce::Graphics& g, juce::Rectangle<floa
 
     const double freq = xToFreq(mousePos_.x, area.getX(), area.getWidth());
     const std::size_t bin = freqToBin(frame_, freq);
+    if (bin >= frame_.magnitudeDb.size() || bin >= frame_.coherence.size()) return;
 
     const double mag = frame_.magnitudeDb[bin];
     const double coh = std::clamp(frame_.coherence[bin], 0.0, 1.0);
@@ -223,8 +229,10 @@ void TransferPlotComponent::drawHoverHUD(juce::Graphics& g, juce::Rectangle<floa
     juce::String deltaStr;
     if (hasPinnedCursor_) {
         const std::size_t pinBin = freqToBin(frame_, pinnedFreqHz_);
-        const double dMag = mag - frame_.magnitudeDb[pinBin];
-        deltaStr = juce::String("  [Δ ") + (dMag >= 0.0 ? "+" : "") + juce::String(dMag, 2) + " dB]";
+        if (pinBin < frame_.magnitudeDb.size()) {
+            const double dMag = mag - frame_.magnitudeDb[pinBin];
+            deltaStr = juce::String("  [Δ ") + (dMag >= 0.0 ? "+" : "") + juce::String(dMag, 2) + " dB]";
+        }
     }
 
     const float hudW = hasPinnedCursor_ ? 310.0f : 230.0f;
@@ -317,8 +325,10 @@ void TransferPlotComponent::paint(juce::Graphics& g) {
     // Helper lambdas to populate scratch paths without dynamic allocation
     auto buildMagPath = [&](juce::Path& p, const dsp::TransferFunctionFrame& f, const std::vector<double>& dbValues) {
         p.clear();
+        if (f.numBins < 2 || f.frequenciesHz.empty() || dbValues.empty()) return;
+        const std::size_t maxK = std::min({f.numBins, f.frequenciesHz.size(), dbValues.size()});
         bool started = false;
-        for (std::size_t k = 1; k < f.numBins; ++k) {
+        for (std::size_t k = 1; k < maxK; ++k) {
             const double freq = f.frequenciesHz[k];
             if (freq < kMinFreqHz || freq > kMaxFreqHz) continue;
 
@@ -339,11 +349,13 @@ void TransferPlotComponent::paint(juce::Graphics& g) {
     auto buildCohPath = [&](juce::Path& strokePath, juce::Path& fillPath, const dsp::TransferFunctionFrame& f) {
         strokePath.clear();
         fillPath.clear();
+        if (f.numBins < 2 || f.frequenciesHz.empty() || f.coherence.empty()) return;
+        const std::size_t maxK = std::min({f.numBins, f.frequenciesHz.size(), f.coherence.size()});
         bool started = false;
         float firstX = area.getX();
         float lastX = area.getX();
 
-        for (std::size_t k = 1; k < f.numBins; ++k) {
+        for (std::size_t k = 1; k < maxK; ++k) {
             const double freq = f.frequenciesHz[k];
             if (freq < kMinFreqHz || freq > kMaxFreqHz) continue;
 
@@ -389,10 +401,11 @@ void TransferPlotComponent::paint(juce::Graphics& g) {
     }
 
     // 5. Phase trace (if unwrapping is enabled or selected)
-    if (unwrapPhase_ && hasData_) {
+    if (unwrapPhase_ && hasData_ && !frame_.phaseUnwrappedDeg.empty() && !frame_.frequenciesHz.empty()) {
         scratchPathPhase_.clear();
+        const std::size_t maxK = std::min({frame_.numBins, frame_.frequenciesHz.size(), frame_.phaseUnwrappedDeg.size()});
         bool started = false;
-        for (std::size_t k = 1; k < frame_.numBins; ++k) {
+        for (std::size_t k = 1; k < maxK; ++k) {
             const double freq = frame_.frequenciesHz[k];
             if (freq < kMinFreqHz || freq > kMaxFreqHz) continue;
 
@@ -413,19 +426,19 @@ void TransferPlotComponent::paint(juce::Graphics& g) {
     }
 
     // 6. Snapshots A and B
-    if (hasSnapshotA_ && showSnapshotA_) {
+    if (hasSnapshotA_ && showSnapshotA_ && !snapshotA_.magnitudeDb.empty()) {
         buildMagPath(scratchPathSnapA_, snapshotA_, snapshotA_.magnitudeDb);
         g.setColour(Theme::traceSnapshotA.withAlpha(0.55f));
         g.strokePath(scratchPathSnapA_, juce::PathStrokeType(1.3f));
     }
-    if (hasSnapshotB_ && showSnapshotB_) {
+    if (hasSnapshotB_ && showSnapshotB_ && !snapshotB_.magnitudeDb.empty()) {
         buildMagPath(scratchPathSnapB_, snapshotB_, snapshotB_.magnitudeDb);
         g.setColour(Theme::traceSnapshotB.withAlpha(0.65f));
         g.strokePath(scratchPathSnapB_, juce::PathStrokeType(1.3f));
     }
 
     // 7. Optional H2 curve
-    if (hasData_ && showH2_) {
+    if (hasData_ && showH2_ && !frame_.h2MagnitudeDb.empty()) {
         buildMagPath(scratchPathH2_, frame_, frame_.h2MagnitudeDb);
         g.setColour(Theme::traceH2.darker(0.2f).withAlpha(0.75f));
         g.strokePath(scratchPathH2_, juce::PathStrokeType(1.2f));

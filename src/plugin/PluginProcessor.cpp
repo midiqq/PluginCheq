@@ -52,6 +52,10 @@ DSPAnalysisProcessor::DSPAnalysisProcessor()
                          .withOutput("Main Output", juce::AudioChannelSet::stereo(), true)
                          .withInput("Sidechain (Reference)", juce::AudioChannelSet::stereo(), false)),
       apvts_(*this, nullptr, "PARAMETERS", createParameterLayout()) {
+    scratchMain_.assign(16384, 0.0);
+    scratchSidechain_.assign(16384, 0.0);
+    tapFloatScratch_.assign(16384, 0.0f);
+
     apvts_.addParameterListener(ParamID::fftSizeIndex, this);
     apvts_.addParameterListener(ParamID::windowType, this);
     apvts_.addParameterListener(ParamID::averagingMode, this);

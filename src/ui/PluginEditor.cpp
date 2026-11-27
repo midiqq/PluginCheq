@@ -78,12 +78,14 @@ void PluginEditor::timerCallback() {
         harmonicPlot_.updateFrame(latestFrame_.harmonicFrame);
     }
 
-    const bool unwrap =
-        processor_.apvts().getRawParameterValue(plugin::ParamID::unwrapPhase)->load() >= 0.5f;
-    const bool showH2 =
-        processor_.apvts().getRawParameterValue(plugin::ParamID::showH2)->load() >= 0.5f;
+    auto* pUnwrap = processor_.apvts().getRawParameterValue(plugin::ParamID::unwrapPhase);
+    auto* pShowH2 = processor_.apvts().getRawParameterValue(plugin::ParamID::showH2);
+    auto* pMagRange = processor_.apvts().getRawParameterValue(plugin::ParamID::magRangeDb);
+
+    const bool unwrap = (pUnwrap != nullptr) && (pUnwrap->load() >= 0.5f);
+    const bool showH2 = (pShowH2 != nullptr) && (pShowH2->load() >= 0.5f);
     const float magRange = plugin::magRangeFromIndex(
-        static_cast<int>(processor_.apvts().getRawParameterValue(plugin::ParamID::magRangeDb)->load()));
+        (pMagRange != nullptr) ? static_cast<int>(pMagRange->load()) : 1);
 
     plot_.setDisplayOptions(unwrap, showH2, magRange);
 

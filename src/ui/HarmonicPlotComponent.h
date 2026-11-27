@@ -177,15 +177,16 @@ public:
             g.drawText(thdnStr, static_cast<int>(pillX), static_cast<int>(badgeY), static_cast<int>(thdnW), 20, juce::Justification::centred, false);
 
             // Spectrum Path & Fill
-            if (frame_.spectrumDb.size() > 2) {
+            if (frame_.spectrumDb.size() > 2 && frame_.spectrumFreqsHz.size() > 2) {
                 scratchSpectrum_.clear();
                 scratchFill_.clear();
 
                 bool started = false;
                 float firstX = area.getX();
                 float lastX = area.getX();
+                const std::size_t maxBins = std::min(frame_.spectrumDb.size(), frame_.spectrumFreqsHz.size());
 
-                for (std::size_t k = 1; k < frame_.spectrumDb.size(); ++k) {
+                for (std::size_t k = 1; k < maxBins; ++k) {
                     const double f = frame_.spectrumFreqsHz[k];
                     if (f < minF || f > maxF) continue;
 
@@ -243,7 +244,8 @@ public:
                     }
 
                     // Highlight Harmonics H2..H8
-                    for (std::size_t h = 0; h < frame_.harmonicFreqsHz.size(); ++h) {
+                    const std::size_t numHarmonics = std::min(frame_.harmonicFreqsHz.size(), frame_.harmonicLevelsDb.size());
+                    for (std::size_t h = 0; h < numHarmonics; ++h) {
                         const float hf = frame_.harmonicFreqsHz[h];
                         if (hf < minF || hf > maxF) continue;
 

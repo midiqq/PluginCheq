@@ -38,8 +38,11 @@ public:
         if (channelId < 0 || channelId >= static_cast<int>(kMaxChannels)) return;
         auto& slot = channels_[channelId];
         if (name) {
-            std::strncpy(slot.name, name, sizeof(slot.name) - 1);
-            slot.name[sizeof(slot.name) - 1] = '\0';
+            std::size_t i = 0;
+            for (; i + 1 < sizeof(slot.name) && name[i] != '\0'; ++i) {
+                slot.name[i] = name[i];
+            }
+            slot.name[i] = '\0';
         }
         slot.sampleRate.store(static_cast<uint32_t>(sampleRate), std::memory_order_relaxed);
         slot.writeIdx.store(0, std::memory_order_relaxed);

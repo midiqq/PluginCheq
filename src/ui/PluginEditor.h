@@ -20,6 +20,7 @@ public:
 
     void paint(juce::Graphics& g) override;
     void resized() override;
+    void tickForTesting() { timerCallback(); }
 
 private:
     void timerCallback() override;

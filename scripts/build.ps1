@@ -23,5 +23,8 @@ if ($Jobs -gt 1) {
 } else {
     cmake --build build-vst3 --config $Config
 }
+if ($LASTEXITCODE -ne 0) {
+    throw "Error de compilación en CMake/MSBuild (exit code $LASTEXITCODE)."
+}
 
 Write-Host "==> [PluginCheq Build] Compilación finalizada con éxito." -ForegroundColor Green

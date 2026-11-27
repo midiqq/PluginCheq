@@ -135,4 +135,24 @@ if(BUILD_PLUGIN)
             juce_recommended_lto_flags
             juce_recommended_warning_flags
     )
+
+    if(BUILD_TESTS)
+        add_executable(plugin_tests
+            tests/PluginLifecycleTests.cpp
+        )
+        target_include_directories(plugin_tests PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/src
+        )
+        target_link_libraries(plugin_tests PRIVATE
+            PluginCheq
+            dsp_core
+            juce::juce_audio_utils
+            juce::juce_dsp
+            Catch2::Catch2WithMain
+        )
+        if(MSVC)
+            target_compile_options(plugin_tests PRIVATE /utf-8)
+        endif()
+        catch_discover_tests(plugin_tests)
+    endif()
 endif()

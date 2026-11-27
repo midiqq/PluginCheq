@@ -162,7 +162,8 @@ public:
             float firstX = area.getX();
             float lastX = area.getX();
 
-            for (std::size_t i = 0; i < frame_.inputLevelsDb.size(); ++i) {
+            const std::size_t numPoints = std::min(frame_.inputLevelsDb.size(), frame_.outputLevelsDb.size());
+            for (std::size_t i = 0; i < numPoints; ++i) {
                 const float inDb = std::clamp(frame_.inputLevelsDb[i], minDb, maxDb);
                 const float outDb = std::clamp(frame_.outputLevelsDb[i], minDb, maxDb);
 
