@@ -22,6 +22,21 @@ ControlBarComponent::ControlBarComponent(plugin::DSPAnalysisProcessor& processor
         addAndMakeVisible(box);
     };
 
+    // --- VIEW SELECTORS ---
+    auto setupViewBtn = [this](juce::TextButton& btn, int idx) {
+        btn.setClickingTogglesState(true);
+        btn.setRadioGroupId(1001);
+        btn.onClick = [this, idx] {
+            currentView_ = idx;
+            if (onViewChanged) onViewChanged(idx);
+        };
+        addAndMakeVisible(btn);
+    };
+    setupViewBtn(viewTransferBtn_, 0);
+    setupViewBtn(viewDynamicsBtn_, 1);
+    setupViewBtn(viewHarmonicsBtn_, 2);
+    viewTransferBtn_.setToggleState(true, juce::dontSendNotification);
+
     // --- ROW 1: Routing & Primary Controls ---
     initCombo(routingBox_, plugin::ParamID::routingMode);
     routingAtt_ = std::make_unique<ComboAttachment>(apvts, plugin::ParamID::routingMode, routingBox_);
@@ -264,44 +279,49 @@ void ControlBarComponent::resized() {
     area.removeFromLeft(134);  // logo and status
     area.removeFromRight(260); // meters
 
-    // ROW 1: Routing & Main Action Buttons
+    // ROW 1: View Selectors (PluginDoctor style) + Main Action Buttons
     auto row1 = area.removeFromTop(28);
-    routingBox_.setBounds(row1.removeFromLeft(150));
+    viewTransferBtn_.setBounds(row1.removeFromLeft(90));
+    row1.removeFromLeft(4);
+    viewDynamicsBtn_.setBounds(row1.removeFromLeft(80));
+    row1.removeFromLeft(4);
+    viewHarmonicsBtn_.setBounds(row1.removeFromLeft(110));
+    row1.removeFromLeft(10);
+    swapButton_.setBounds(row1.removeFromLeft(66));
     row1.removeFromLeft(6);
-    tapChannelBox_.setBounds(row1.removeFromLeft(74));
+    findDelayButton_.setBounds(row1.removeFromLeft(130));
     row1.removeFromLeft(6);
-    swapButton_.setBounds(row1.removeFromLeft(72));
+    freezeButton_.setBounds(row1.removeFromLeft(58));
+    row1.removeFromLeft(6);
+    resetAvgButton_.setBounds(row1.removeFromLeft(50));
     row1.removeFromLeft(8);
-    findDelayButton_.setBounds(row1.removeFromLeft(136));
+    advancedToggleBtn_.setBounds(row1.removeFromLeft(86));
     row1.removeFromLeft(6);
-    freezeButton_.setBounds(row1.removeFromLeft(62));
-    row1.removeFromLeft(6);
-    resetAvgButton_.setBounds(row1.removeFromLeft(54));
-    row1.removeFromLeft(8);
-    advancedToggleBtn_.setBounds(row1.removeFromLeft(90));
-    row1.removeFromLeft(6);
-    helpBtn_.setBounds(row1.removeFromLeft(28));
+    helpBtn_.setBounds(row1.removeFromLeft(26));
 
     area.removeFromTop(6);
 
-    // ROW 2: Primary Controls (Smoothing, Generator, Snapshots)
+    // ROW 2: Primary Controls (Routing, Smoothing, Generator, Snapshots)
     auto row2 = area.removeFromTop(26);
-    smoothingBox_.setBounds(row2.removeFromLeft(108));
+    routingBox_.setBounds(row2.removeFromLeft(140));
+    row2.removeFromLeft(4);
+    tapChannelBox_.setBounds(row2.removeFromLeft(64));
     row2.removeFromLeft(6);
-    channelBox_.setBounds(row2.removeFromLeft(88));
+    smoothingBox_.setBounds(row2.removeFromLeft(96));
+    row2.removeFromLeft(6);
+    channelBox_.setBounds(row2.removeFromLeft(80));
+    row2.removeFromLeft(6);
+    generatorBox_.setBounds(row2.removeFromLeft(96));
+    row2.removeFromLeft(4);
+    genGainSlider_.setBounds(row2.removeFromLeft(68));
     row2.removeFromLeft(8);
-    generatorBox_.setBounds(row2.removeFromLeft(108));
+    storeAButton_.setBounds(row2.removeFromLeft(52));
     row2.removeFromLeft(4);
-    genGainLabel_.setBounds(row2.removeFromLeft(30));
-    genGainSlider_.setBounds(row2.removeFromLeft(84));
-    row2.removeFromLeft(12);
-    storeAButton_.setBounds(row2.removeFromLeft(56));
+    showAButton_.setBounds(row2.removeFromLeft(28));
     row2.removeFromLeft(4);
-    showAButton_.setBounds(row2.removeFromLeft(32));
-    row2.removeFromLeft(6);
-    storeBButton_.setBounds(row2.removeFromLeft(56));
+    storeBButton_.setBounds(row2.removeFromLeft(52));
     row2.removeFromLeft(4);
-    showBButton_.setBounds(row2.removeFromLeft(32));
+    showBButton_.setBounds(row2.removeFromLeft(28));
 
     // If Advanced Drawer is Open
     if (isAdvancedOpen_) {

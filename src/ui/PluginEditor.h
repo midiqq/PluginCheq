@@ -4,6 +4,8 @@
 #include "HelpOverlayComponent.h"
 #include "PluginCheqLookAndFeel.h"
 #include "TransferPlotComponent.h"
+#include "DynamicsPlotComponent.h"
+#include "HarmonicPlotComponent.h"
 #include "plugin/PluginProcessor.h"
 
 #include <juce_gui_basics/juce_gui_basics.h>
@@ -26,8 +28,11 @@ private:
     plugin::DSPAnalysisProcessor& processor_;
     ControlBarComponent controlBar_;
     TransferPlotComponent plot_;
+    DynamicsPlotComponent dynamicsPlot_;
+    HarmonicPlotComponent harmonicPlot_;
     HelpOverlayComponent helpOverlay_;
 
+    int currentView_ = 0; // 0 = Linear/EQ, 1 = Dynamics, 2 = Harmonics
     dsp::TransferFunctionFrame latestFrame_;
     bool isFrozen_ = false;
     bool isAdvancedOpen_ = false;

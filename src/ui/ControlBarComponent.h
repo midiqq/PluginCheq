@@ -20,6 +20,7 @@ public:
     std::function<void()> onToggleAdvanced;
     std::function<void()> onOpenSettings;
     std::function<void()> onOpenHelp;
+    std::function<void(int viewIndex)> onViewChanged;
 
     void updateStatus(float refPeak,
                       float measPeak,
@@ -38,6 +39,12 @@ public:
 private:
     plugin::DSPAnalysisProcessor& processor_;
     bool isAdvancedOpen_ = false;
+
+    // --- VIEW SELECTORS (PluginDoctor Tabs) ---
+    juce::TextButton viewTransferBtn_{"Linear / EQ"};
+    juce::TextButton viewDynamicsBtn_{"Dynamics"};
+    juce::TextButton viewHarmonicsBtn_{"Harmonics / THD"};
+    int currentView_ = 0; // 0 = Transfer, 1 = Dynamics, 2 = Harmonics
 
     // --- ROW 1: Routing & Primary Workflow ---
     juce::ComboBox routingBox_;

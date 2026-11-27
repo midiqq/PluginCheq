@@ -10,7 +10,17 @@ PluginEditor::PluginEditor(plugin::DSPAnalysisProcessor& processor)
     setLookAndFeel(&lookAndFeel_);
     addAndMakeVisible(controlBar_);
     addAndMakeVisible(plot_);
+    addChildComponent(dynamicsPlot_);
+    addChildComponent(harmonicPlot_);
     addChildComponent(helpOverlay_);
+
+    controlBar_.onViewChanged = [this](int viewIndex) {
+        currentView_ = viewIndex;
+        plot_.setVisible(currentView_ == 0);
+        dynamicsPlot_.setVisible(currentView_ == 1);
+        harmonicPlot_.setVisible(currentView_ == 2);
+        resized();
+    };
 
     controlBar_.onFreezeChanged = [this](bool frozen) {
         isFrozen_ = frozen;
@@ -63,6 +73,8 @@ PluginEditor::~PluginEditor() {
 void PluginEditor::timerCallback() {
     if (processor_.worker().fetchLatestFrame(latestFrame_) && !isFrozen_) {
         plot_.updateFrame(latestFrame_);
+        dynamicsPlot_.updateFrame(latestFrame_.dynamicsFrame);
+        harmonicPlot_.updateFrame(latestFrame_.harmonicFrame);
     }
 
     const bool unwrap =
@@ -93,7 +105,10 @@ void PluginEditor::resized() {
     auto area = getLocalBounds();
     const int barHeight = isAdvancedOpen_ ? 138 : 74;
     controlBar_.setBounds(area.removeFromTop(barHeight));
-    plot_.setBounds(area.reduced(8, 6));
+    const auto plotArea = area.reduced(8, 6);
+    plot_.setBounds(plotArea);
+    dynamicsPlot_.setBounds(plotArea);
+    harmonicPlot_.setBounds(plotArea);
     helpOverlay_.setBounds(getLocalBounds());
 }
 

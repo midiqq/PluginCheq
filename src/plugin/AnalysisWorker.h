@@ -47,6 +47,8 @@ private:
     dsp::RingBuffer<double> measRing_{131072};
 
     dsp::TransferFunctionEngine engine_;
+    dsp::DynamicsEngine dynamicsEngine_;
+    dsp::HarmonicEngine harmonicEngine_;
     dsp::TripleBuffer<dsp::TransferFunctionFrame> tripleBuffer_;
 
     std::vector<double> refSlideBuf_;

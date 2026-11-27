@@ -36,6 +36,9 @@ void AnalysisWorker::prepare(double sampleRate, std::size_t maxBlockSize) {
         configDirty_.store(true, std::memory_order_release);
     }
 
+    dynamicsEngine_.prepare(sampleRate);
+    harmonicEngine_.prepare(engine_.config().fftSize, sampleRate);
+
     buffersResetRequested_.store(true, std::memory_order_release);
 
     if (!isThreadRunning()) {
@@ -157,6 +160,8 @@ void AnalysisWorker::run() {
 
             auto& writeFrame = tripleBuffer_.getWriteBuffer();
             engine_.processFrame(refSlideBuf_.data(), measSlideBuf_.data(), writeFrame);
+            dynamicsEngine_.processBlock(refSlideBuf_.data(), measSlideBuf_.data(), fftSize, writeFrame.dynamicsFrame);
+            harmonicEngine_.processBlock(measSlideBuf_.data(), fftSize, writeFrame.harmonicFrame);
             tripleBuffer_.publish();
         }
     }

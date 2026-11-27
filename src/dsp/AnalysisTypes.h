@@ -3,6 +3,8 @@
 #include "DelayFinder.h"
 #include "SpectrumSmoothing.h"
 #include "SignalGenerator.h"
+#include "DynamicsEngine.h"
+#include "HarmonicEngine.h"
 
 #include <complex>
 #include <cstddef>
@@ -54,6 +56,8 @@ struct TransferFunctionFrame {
     std::uint64_t frameCounter = 0;
 
     DelayEstimate delayEstimate{};
+    DynamicsFrame dynamicsFrame{};
+    HarmonicFrame harmonicFrame{};
 
     // Frequency vector [0 .. fs/2]
     std::vector<double> frequenciesHz;

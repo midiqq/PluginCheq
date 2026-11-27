@@ -24,6 +24,8 @@ add_library(dsp_core STATIC
     src/dsp/DelayFinder.cpp
     src/dsp/SpectrumSmoothing.h
     src/dsp/SpectrumSmoothing.cpp
+    src/dsp/DynamicsEngine.h
+    src/dsp/HarmonicEngine.h
     src/dsp/TransferFunctionEngine.h
     src/dsp/TransferFunctionEngine.cpp
 )
@@ -55,6 +57,7 @@ if(BUILD_TESTS)
         tests/TestSystems.h
         tests/TransferFunctionTests.cpp
         tests/Phase2Tests.cpp
+        tests/DynamicsHarmonicTests.cpp
         tests/RealTimeSafetyTests.cpp
     )
 
@@ -88,7 +91,7 @@ if(BUILD_PLUGIN)
         COPY_PLUGIN_AFTER_BUILD FALSE
         PLUGIN_MANUFACTURER_CODE Pchq
         PLUGIN_CODE Pchq
-        FORMATS VST3 Standalone
+        FORMATS VST3
         PRODUCT_NAME "PluginCheq"
     )
 
@@ -102,6 +105,8 @@ if(BUILD_PLUGIN)
         src/ui/PluginCheqLookAndFeel.h
         src/ui/TransferPlotComponent.h
         src/ui/TransferPlotComponent.cpp
+        src/ui/DynamicsPlotComponent.h
+        src/ui/HarmonicPlotComponent.h
         src/ui/ControlBarComponent.h
         src/ui/ControlBarComponent.cpp
         src/ui/PluginEditor.h
